@@ -17,6 +17,7 @@ import {
   folderDelete, cookiesExportToFile, cookiesImport,
 } from "../model/api";
 import { defaultForm, fromStored, toStored } from "../model/form";
+import { applyDefaults, useProfileDefaults } from "../../profile-defaults";
 
 const FOLDERS_KEY = "shardx-folders";
 
@@ -338,7 +339,8 @@ export const useProfile = create<ProfileStore>((set, get) => ({
     const stored = await profileGet(id);
     set({ draft: fromStored(stored), expanded: id });
   },
-  newProfile: () => set({ draft: defaultForm(), expanded: "__new__" }),
+  // A new profile starts from the operator's Profile defaults (protections, WebRTC, language, time zone).
+  newProfile: () => set({ draft: applyDefaults(defaultForm(), useProfileDefaults.getState().defaults), expanded: "__new__" }),
   cancelEdit: () => set({ expanded: null, draft: null }),
 
   saveDraft: async () => {

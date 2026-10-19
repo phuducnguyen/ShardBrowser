@@ -1,5 +1,4 @@
-import { Button } from "@proxyshard/shardx-ui-kit";
-import Badge from "../../../shared/ui/Badge";
+import { Icon } from "../../../shared/ui/hv";
 import { useFingerprint, type FingerprintEntry } from "../../../entities/fingerprint";
 import { useT } from "../../../shared/i18n";
 
@@ -10,15 +9,21 @@ export function FingerprintCardActions({ entry }: { entry: FingerprintEntry }) {
 
   return (
     <>
-      <Button variant="neutral" mode="stroke" size="2xsmall" onClick={() => useTemplate(entry.id)}>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={() => useTemplate(entry.id)}>
         {t("fingerprintCardActions.use")}
-      </Button>
+      </button>
       {entry.builtin ? (
-        <Badge color="gray" variant="lighter" size="small" className="ml-auto">{t("fingerprintCardActions.builtin")}</Badge>
+        <span className="chip-plain push">{t("fingerprintCardActions.builtin")}</span>
       ) : (
-        <Button variant="error" mode="stroke" size="2xsmall" onClick={() => remove(entry.id)} title={t("fingerprintCardActions.removeTitle")}>
-          ✕
-        </Button>
+        <button
+          type="button"
+          className="icon-btn push"
+          title={t("fingerprintCardActions.removeTitle")}
+          aria-label={t("fingerprintCardActions.removeTitle")}
+          onClick={() => remove(entry.id)}
+        >
+          <Icon name="trash" size={18} />
+        </button>
       )}
     </>
   );

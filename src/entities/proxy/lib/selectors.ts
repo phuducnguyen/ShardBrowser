@@ -1,14 +1,17 @@
 import { useMemo } from "react";
 import { filterProxies, useProxy } from "./useProxy";
 
-/// Search-filtered proxies, matching name/host/port/country/notes/user + geo snapshot.
+/// The rows the table shows: search (name/host/port/country/notes/user + geo
+/// snapshot) plus the type and status filters.
 export function useFilteredProxies() {
     const proxies = useProxy((s) => s.proxies);
     const snapshots = useProxy((s) => s.snapshots);
     const search = useProxy((s) => s.search);
+    const kind = useProxy((s) => s.kindFilter);
+    const status = useProxy((s) => s.statusFilter);
     return useMemo(
-        () => filterProxies(proxies, snapshots, search),
-        [proxies, snapshots, search],
+        () => filterProxies(proxies, snapshots, search, kind, status),
+        [proxies, snapshots, search, kind, status],
     );
 }
 

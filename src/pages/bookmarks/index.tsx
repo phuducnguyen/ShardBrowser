@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, DialogModal, cn } from "@proxyshard/shardx-ui-kit";
-import { Topbar } from "../../shared/ui/Topbar";
+import { FormDialog, Icon, Window } from "../../shared/ui/hv";
 import { useStoreChanged } from "../../shared/hooks/useStoreChanged";
-import { Field } from "../../shared/ui/Field";
-import { CSSelect } from "../../shared/ui/CSSelect";
-import { AddIcon, DeleteIcon, NavBookmarksIcon } from "../../shared/icons";
 import { useBookmarks, emptyBookmark, type Bookmark } from "../../entities/bookmark";
 import { useFolders, useProfile } from "../../entities/profile";
 import { useT } from "../../shared/i18n";
@@ -18,44 +14,48 @@ function Editor({ initial, folders, onClose }: {
   const [b, setB] = useState(initial);
   const save = useBookmarks((s) => s.save);
   return (
-    <DialogModal
-      open
-      onClose={onClose}
+    <FormDialog
       title={initial.id ? t("bookmarks.editTitle") : t("bookmarks.newTitle")}
       confirmLabel={t("bookmarks.save")}
-      onConfirm={() => save(b)}
       cancelLabel={t("bookmarks.cancel")}
-      onCancel={onClose}
+      initialFocus="#bm-url"
+      onClose={onClose}
+      onConfirm={() => save(b)}
     >
-      <div className="flex w-[420px] flex-col gap-3 py-4">
-        <Field
-          label={t("bookmarks.urlLabel")}
+      <div>
+        <label className="label" htmlFor="bm-url">{t("bookmarks.urlLabel")}</label>
+        <input
+          id="bm-url"
+          className="field"
+          autoComplete="off"
+          spellCheck={false}
           value={b.url}
-          onChange={(v) => setB({ ...b, url: v })}
           placeholder="facebook.com/ads/manager"
-          mono
+          onChange={(e) => setB({ ...b, url: e.target.value })}
         />
-        <Field
-          label={t("bookmarks.titleLabel")}
-          value={b.title}
-          onChange={(v) => setB({ ...b, title: v })}
-          placeholder={t("bookmarks.titlePlaceholder")}
-        />
-        <CSSelect
-          title={t("bookmarks.folderLabel")}
-          value={b.folder}
-          onChange={(v) => setB({ ...b, folder: v })}
-          isSearchable={folders.length > 8}
-          options={[
-            { value: "", label: t("bookmarks.folderAnyOption") },
-            ...folders.map((f) => ({ value: f, label: f })),
-          ]}
-        />
-        <p className="m-0 text-paragraph-xs text-text-soft-400">
-          {t("bookmarks.hintPart1")}<strong>ShardX</strong>{t("bookmarks.hintPart2")}
-        </p>
       </div>
-    </DialogModal>
+      <div>
+        <label className="label" htmlFor="bm-title">{t("bookmarks.titleLabel")}</label>
+        <input
+          id="bm-title"
+          className="field"
+          autoComplete="off"
+          value={b.title}
+          placeholder={t("bookmarks.titlePlaceholder")}
+          onChange={(e) => setB({ ...b, title: e.target.value })}
+        />
+      </div>
+      <div>
+        <label className="label" htmlFor="bm-folder">{t("bookmarks.folderLabel")}</label>
+        <select id="bm-folder" className="select" value={b.folder} onChange={(e) => setB({ ...b, folder: e.target.value })}>
+          <option value="">{t("bookmarks.folderAnyOption")}</option>
+          {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </div>
+      <p className="hint">
+        {t("bookmarks.hintPart1")}<strong>ShardX</strong>{t("bookmarks.hintPart2")}
+      </p>
+    </FormDialog>
   );
 }
 
@@ -92,102 +92,98 @@ export function BookmarksPage() {
     f === "" ? profiles.length : profiles.filter((p) => p.folder === f).length;
 
   const tabs = [
-    { id: "all", label: t("bookmarks.tabAll") },
-    { id: "__any__", label: t("bookmarks.tabEveryProfile") },
-    ...folders.map((f) => ({ id: f, label: f })),
+    { id: "all", label: t("bookmarks.tabAll"), count: items.length },
+    { id: "__any__", label: t("bookmarks.tabEveryProfile"), count: items.filter((b) => b.folder === "").length },
+    ...folders.map((f) => ({ id: f, label: f, count: items.filter((b) => b.folder === f).length })),
   ];
 
   return (
-    <section className="flex flex-col">
-      <Topbar crumbs={[t("bookmarks.crumbLibrary"), t("bookmarks.crumbBookmarks")]} search={search} onSearch={setSearch} />
-
-      <div className="mb-3.5 flex items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-3.5">
-          <div>
-            <h1 className="m-0 text-title-h5 text-text-strong-950">{t("bookmarks.heading")}</h1>
-            <p className="m-0 mt-1 max-w-[70ch] text-paragraph-xs text-text-soft-400">
-              {t("bookmarks.subtitle")}
-            </p>
+    <>
+      <Window
+        title={t("bookmarks.heading")}
+        actions={
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setEditing(emptyBookmark(folder === "all" || folder === "__any__" ? "" : folder))}
+          >
+            <Icon name="plus" />{t("bookmarks.newButton")}
+          </button>
+        }
+      >
+        <aside className="panel" aria-label={t("bookmarks.folderLabel")}>
+          <div className="panel-title">{t("bookmarks.folderLabel")}</div>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={tab.id === folder ? "nav-item is-active" : "nav-item"}
+              aria-current={tab.id === folder ? "true" : undefined}
+              onClick={() => setFolder(tab.id)}
+            >
+              {tab.label}
+              <span className="count">{tab.count}</span>
+            </button>
+          ))}
+        </aside>
+        <div className="card stack clip">
+          <div className="toolbar">
+            <p className="hint" style={{ margin: 0 }}>{t("bookmarks.subtitle")}</p>
+            <span className="grow" />
+            <label className="search">
+              <Icon name="search" size={18} />
+              <span className="sr-only">{t("bookmarks.searchLabel")}</span>
+              <input type="search" placeholder={t("bookmarks.searchPlaceholder")} autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </label>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFolder(tab.id)}
-                className={cn(
-                  "rounded-6 px-2.5 py-1 text-label-xs ring-1 ring-inset transition-colors",
-                  folder === tab.id
-                    ? "bg-primary-alpha-10 text-primary-base ring-primary-alpha-24"
-                    : "text-text-sub-600 ring-stroke-soft-200 hover:bg-bg-weak-50",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="table-wrap">
+            {shown.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("bookmarks.titleLabel")}</th>
+                    <th>{t("bookmarks.urlLabel")}</th>
+                    <th>{t("bookmarks.folderLabel")}</th>
+                    <th><span className="sr-only">{t("bookmarks.colActions")}</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((b) => (
+                    <tr key={b.id}>
+                      <td>
+                        <button type="button" className="link-btn" title={t("bookmarks.editTooltip")} onClick={() => setEditing(b)}>
+                          {b.title || b.url}
+                        </button>
+                      </td>
+                      <td className="mono"><span className="ellip" title={b.url}>{b.url}</span></td>
+                      <td>
+                        {b.folder
+                          ? countIn(b.folder) === 1
+                            ? t("bookmarks.folderProfileCountOne", { folder: b.folder })
+                            : t("bookmarks.folderProfileCount", { folder: b.folder, n: countIn(b.folder) })
+                          : t("bookmarks.everyProfileCount", { n: profiles.length })}
+                      </td>
+                      <td className="cell-actions">
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => remove(b)}>
+                          <Icon name="trash" size={18} />{t("bookmarks.delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {shown.length === 0 && (
+              <div className="empty-hero">
+                <div className="empty-ico"><Icon name="bookmark" size={26} /></div>
+                <h3>{items.length === 0 ? t("bookmarks.emptyTitle") : t("bookmarks.emptyFolderTitle")}</h3>
+                <p>{t("bookmarks.emptyHint")}</p>
+              </div>
+            )}
           </div>
         </div>
-        <Button
-          variant="primary" mode="filled" size="small"
-          leftIcon={<AddIcon className="size-4" />}
-          onClick={() => setEditing(emptyBookmark(folder === "all" || folder === "__any__" ? "" : folder))}
-        >
-          {t("bookmarks.newButton")}
-        </Button>
-      </div>
-
-      <div className="overflow-hidden rounded-12 bg-bg-white-0 shadow-[var(--shadow-xs)] ring-1 ring-inset ring-stroke-soft-200">
-        {shown.map((b) => (
-          <div
-            key={b.id}
-            className="grid grid-cols-[1fr_1fr_200px_100px] items-center gap-3 border-t border-stroke-soft-200 px-4 py-2.5 first:border-t-0 transition-colors hover:bg-bg-weak-50"
-          >
-            <div
-              className="min-w-0 cursor-pointer truncate text-label-xs text-text-strong-950 transition-colors hover:text-primary-base"
-              onClick={() => setEditing(b)}
-              title={t("bookmarks.editTooltip")}
-            >
-              {b.title || b.url}
-            </div>
-            <div className="mono min-w-0 truncate text-paragraph-xs text-text-sub-600" title={b.url}>
-              {b.url}
-            </div>
-            <div className="truncate text-paragraph-xs text-text-sub-600">
-              {b.folder
-                ? countIn(b.folder) === 1
-                  ? t("bookmarks.folderProfileCountOne", { folder: b.folder })
-                  : t("bookmarks.folderProfileCount", { folder: b.folder, n: countIn(b.folder) })
-                : t("bookmarks.everyProfileCount", { n: profiles.length })}
-            </div>
-            <div className="flex justify-end">
-              <Button
-                variant="error" mode="ghost" size="2xsmall"
-                leftIcon={<DeleteIcon className="size-3.5" />}
-                onClick={() => remove(b)}
-              >
-                {t("bookmarks.delete")}
-              </Button>
-            </div>
-          </div>
-        ))}
-        {shown.length === 0 && (
-          <div className="flex flex-col items-center gap-2.5 px-6 py-14 text-center">
-            <div className="grid size-14 place-items-center rounded-[14px] bg-primary-alpha-10 text-primary-base ring-1 ring-inset ring-primary-alpha-24">
-              <NavBookmarksIcon className="size-6" />
-            </div>
-            <h3 className="m-0 text-label-sm text-text-strong-950">
-              {items.length === 0 ? t("bookmarks.emptyTitle") : t("bookmarks.emptyFolderTitle")}
-            </h3>
-            <p className="m-0 max-w-[420px] text-paragraph-sm text-text-sub-600">
-              {t("bookmarks.emptyHint")}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {editing && (
-        <Editor initial={editing} folders={folders} onClose={() => setEditing(null)} />
-      )}
-    </section>
+      </Window>
+      {editing && <Editor initial={editing} folders={folders} onClose={() => setEditing(null)} />}
+    </>
   );
 }

@@ -1,27 +1,25 @@
-import { Alert } from "@proxyshard/shardx-ui-kit";
+import { Icon } from "../../shared/ui/hv";
 import { useToastStore } from "../../shared/model/toast";
+import { useT } from "../../shared/i18n";
 
-/// Global toast stack — UI-kit Alerts fed by the zustand toast store.
+/// Global toast stack fed by the zustand toast store. The live region is always
+/// mounted so a screen reader announces the first toast as well as later ones.
 export function ToastHost() {
+  const t = useT();
   const items = useToastStore((s) => s.items);
   const dismiss = useToastStore((s) => s.dismiss);
-  if (items.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-300 flex flex-col-reverse gap-3">
-      {items.map((t) => (
-        <div
-          key={t.id}
-          className="pointer-events-auto min-w-[280px] max-w-[520px] animate-[toastIn_0.2s_cubic-bezier(.2,.9,.3,1)] shadow-[var(--shadow-md)]"
-        >
-          <Alert
-            status={t.kind === "ok" ? "success" : t.kind === "err" ? "error" : "information"}
-            variant="light"
-            onClose={() => dismiss(t.id)}
-          >
-            {t.text}
-          </Alert>
-        </div>
-      ))}
+    <div className="hv" style={{ display: "contents" }}>
+      <div className="toast-stack" role="status" aria-live="polite">
+        {items.map((item) => (
+          <div key={item.id} className={item.kind === "err" ? "toast is-error" : "toast"}>
+            <span>{item.text}</span>
+            <button type="button" aria-label={t("toast.dismiss")} onClick={() => dismiss(item.id)}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

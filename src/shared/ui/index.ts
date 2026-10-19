@@ -35,11 +35,7 @@ export type { BadgeProps, BadgeColor, BadgeVariant, BadgeSize } from "./Badge";
 
 export { Field } from "./Field";
 export { NumField } from "./NumField";
-export { SelectField } from "./SelectField";
 export { CSSelect } from "./CSSelect";
-export { Pair } from "./Pair";
-export { PortList } from "./PortList";
-export { CopyField } from "./CopyField";
 export { CountryFlag } from "./CountryFlag";
 export { Metric } from "./Metric";
 export { Topbar } from "./Topbar";

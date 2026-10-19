@@ -1,24 +1,25 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Button, Input, Select, Switch, Textarea } from "@proxyshard/shardx-ui-kit";
-import { DownloadIcon } from "../../shared/icons";
-import { Topbar } from "../../shared/ui/Topbar";
-import { CopyField } from "../../shared/ui/CopyField";
+import { CopyField, Icon, NavTabs, Window, type TabItem } from "../../shared/ui/hv";
 import { toast } from "../../shared/model/toast";
 import { withUtm } from "../../shared/lib/utils";
 import type { Settings, ApiInfo } from "../../entities/settings";
 import { HELPER_KINDS } from "../../entities/settings";
 import { settingsGet, settingsSave, settingsLoadError, apiInfo, apiRegenerateToken, mcpDownload } from "../../entities/settings";
 import { DataRootCard } from "../../features/manage-profiles/ui/DataRootCard";
+import { ProfileDefaultsTab } from "./ProfileDefaultsTab";
 import { useT, useLang, LANG_OPTIONS, type Lang } from "../../shared/i18n";
 
-function SettingsCard({ title, children }: { title: string; children: React.ReactNode }) {
+type Tab = "general" | "browser" | "defaults" | "data" | "api";
+const PREFIX = "settings";
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="mb-3.5 rounded-lg bg-bg-white-0 p-[18px] shadow-[var(--shadow-xs)] ring-1 ring-inset ring-stroke-soft-200">
-      <h3 className="m-0 mb-1.5 text-label-sm text-text-strong-950">{title}</h3>
-      {children}
-    </div>
+    <label className="toggle">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span><b>{label}</b></span>
+    </label>
   );
 }
 
@@ -26,6 +27,7 @@ export function SettingsPage() {
   const t = useT();
   const lang = useLang((st) => st.lang);
   const setLang = useLang((st) => st.setLang);
+  const [tab, setTab] = useState<Tab>("general");
   const [s, setS] = useState<Settings>({
     browser_path: null,
     theme: "dark",
@@ -65,231 +67,208 @@ export function SettingsPage() {
   const save = async () => {
     try { await settingsSave(s); toast.ok(t("settings.saved")); }
     catch (e) { toast.err(String(e)); }
+    refreshApi();
   };
+
+  const tabs: TabItem<Tab>[] = [
+    { id: "general", label: t("settings.tabGeneral") },
+    { id: "browser", label: t("settings.tabBrowser") },
+    { id: "defaults", label: t("settings.tabDefaults") },
+    { id: "data", label: t("settings.tabData") },
+    { id: "api", label: t("settings.tabApi") },
+  ];
+  const triggers = s.helper_triggers ?? [];
+  const helperOn = s.helper_enabled ?? true;
+
   return (
-    <section className="flex flex-col">
-      <Topbar crumbs={[t("settings.crumbSystem"), t("settings.crumbSettings")]} search="" onSearch={() => {}} />
-      <div className="mb-3.5 flex items-end justify-between gap-4">
-        <h1 className="m-0 text-title-h5 text-text-strong-950">{t("settings.title")}</h1>
-      </div>
-
-      {loadError && (
-        <div className="mb-3.5 rounded-lg bg-bg-white-0 p-[18px] text-paragraph-sm text-text-strong-950 shadow-[var(--shadow-xs)] ring-1 ring-inset ring-error-base">
-          <strong>{t("settings.loadErrorTitle")}</strong>{t("settings.loadErrorBody1")}<code>settings.json.bad</code>{t("settings.loadErrorBody2")}<code>Set-Content -Encoding UTF8</code>{t("settings.loadErrorBody3")}
-          <div className="mt-1 text-paragraph-xs text-text-soft-400">{loadError}</div>
-        </div>
-      )}
-
-      <SettingsCard title={t("settings.languageTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.languageHelp")}
-        </p>
-        <Select
-          label={t("settings.interfaceLanguageLabel")}
-          size="small"
-          value={lang}
-          onChange={(v) => setLang(v as Lang)}
-          options={LANG_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-        />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.geoCheckerTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.geoCheckerHelp1")}<strong>{t("settings.geoCheckerTestWord")}</strong>{t("settings.geoCheckerHelp2")}
-        </p>
-        <Select
-          label={t("settings.providerLabel")}
-          size="small"
-          value={s.geo_checker ?? "ip-api.com"}
-          onChange={(v) => setS({ ...s, geo_checker: v })}
-          options={[
-            { value: "ip-api.com", label: t("settings.geoIpApiCom") },
-            { value: "ipapi.co", label: t("settings.geoIpapiCo") },
-            { value: "ipwho.is", label: t("settings.geoIpwhoIs") },
-          ]}
-        />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.screenTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          <strong>{t("settings.screenFromFingerprintWord")}</strong>{t("settings.screenHelp1")}
-          <strong>{t("settings.screenRealWord")}</strong>{t("settings.screenHelp2")}
-        </p>
-        <Select
-          label={t("settings.screenModeLabel")}
-          size="small"
-          value={s.screen_resolution_mode ?? "fingerprint"}
-          onChange={(v) => setS({ ...s, screen_resolution_mode: v })}
-          options={[
-            { value: "fingerprint", label: t("settings.screenModeFingerprint") },
-            { value: "real", label: t("settings.screenModeReal") },
-          ]}
-        />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.helperTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.helperHelp1")}
-          <strong>{t("settings.helperOffersWord")}</strong>{t("settings.helperHelp2")}
-          <br />
-          <strong>{t("settings.helperNeverSync")}</strong>{t("settings.helperHelp3")}
-        </p>
-        <div className="flex flex-col gap-3">
-          <Switch
-            label={t("settings.helperEnableLabel")}
-            checked={s.helper_enabled ?? true}
-            onChange={(checked) => setS({ ...s, helper_enabled: checked })}
-          />
-          {(s.helper_enabled ?? true) && (
-            <div>
-              <div className="mb-1.5 text-label-xs text-text-sub-600">
-                {t("settings.helperReactTo")}
-              </div>
-              <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-                {t("settings.helperTriggersHelp")}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {HELPER_KINDS.map((k) => {
-                  const picked = (s.helper_triggers ?? []).includes(k.value);
-                  return (
-                    <button
-                      key={k.value}
-                      type="button"
-                      onClick={() => {
-                        const cur = s.helper_triggers ?? [];
-                        setS({
-                          ...s,
-                          helper_triggers: picked
-                            ? cur.filter((x) => x !== k.value)
-                            : [...cur, k.value],
-                        });
-                      }}
-                      className={`rounded-6 px-2 py-1 text-paragraph-xs ring-1 ring-inset transition-colors ${
-                        picked
-                          ? "bg-primary-alpha-10 text-primary-base ring-primary-alpha-24"
-                          : "text-text-sub-600 ring-stroke-soft-200 hover:bg-bg-weak-50"
-                      }`}
-                    >
-                      {t(k.label)}
-                    </button>
-                  );
-                })}
-              </div>
+    <Window title={t("settings.title")}>
+      <aside className="panel" aria-label={t("settings.tablist")}>
+        <NavTabs label={t("settings.tablist")} idPrefix={PREFIX} value={tab} tabs={tabs} onChange={setTab} />
+      </aside>
+      <div className="card grow">
+        {tab === "defaults" ? (
+          <ProfileDefaultsTab panelId={`${PREFIX}-panel`} labelledBy={`${PREFIX}-tab-defaults`} />
+        ) : (<>
+        <div className="tabpanel" role="tabpanel" id={`${PREFIX}-panel`} aria-labelledby={`${PREFIX}-tab-${tab}`} key={tab}>
+          {loadError && (
+            <div className="callout-err" role="alert">
+              <strong>{t("settings.loadErrorTitle")}</strong>{t("settings.loadErrorBody1")}<code>settings.json.bad</code>{t("settings.loadErrorBody2")}<code>Set-Content -Encoding UTF8</code>{t("settings.loadErrorBody3")}
+              <div className="soft small">{loadError}</div>
             </div>
           )}
-        </div>
-      </SettingsCard>
 
-      <SettingsCard title={t("settings.cameraTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.cameraHelp1")}
-          <strong>{t("settings.cameraLeaveOn")}</strong>{t("settings.cameraHelp2")}
-        </p>
-        <Switch
-          label={t("settings.cameraSwitchLabel")}
-          checked={s.camera_enabled ?? true}
-          onChange={(checked) => setS({ ...s, camera_enabled: checked })}
-        />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.dataLocationTitle")}>
-        <DataRootCard />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.extraArgsTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.extraArgsHelp1")}<strong>{t("settings.extraArgsLastWord")}</strong>{t("settings.extraArgsHelp2")}
-          <br />
-          {t("settings.extraArgsHelp3")}
-        </p>
-        <Textarea
-          rows={3}
-          className="mono"
-          value={s.extra_args ?? ""}
-          onChange={(e) => setS({ ...s, extra_args: e.target.value })}
-          placeholder={"--disable-background-timer-throttling\n--window-size=1280,800"}
-        />
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.apiTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.apiHelp1")}<strong>127.0.0.1</strong>{t("settings.apiHelp2")}{" "}
-          <a
-            href="#"
-            className="text-primary-base hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              openUrl(withUtm("https://docs.proxyshard.com/eng/shardx-launcher-api/binding-and-lifecycle?fallback=true")).catch(() => {});
-            }}
-          >
-            {t("settings.apiRefLink")}
-          </a>
-        </p>
-        <div className="flex flex-col gap-3">
-          <Switch
-            label={t("settings.apiEnableLabel")}
-            checked={s.api_enabled ?? true}
-            onChange={(checked) => setS({ ...s, api_enabled: checked })}
-          />
-          <Input
-            label={t("settings.apiPortLabel")}
-            inputSize="small"
-            type="number"
-            value={s.api_port ?? 40325}
-            onChange={(e) => setS({ ...s, api_port: Number(e.target.value) || 40325 })}
-          />
-          {api && (
+          {tab === "general" && (
             <>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-label-xs text-text-sub-600">{t("settings.apiBaseUrlLabel")}</span>
-                <CopyField value={api.base_url} />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-label-xs text-text-sub-600">{t("settings.apiTokenLabel")}</span>
-                <CopyField value={api.token} secret />
-              </label>
-              <div className="mt-1 flex items-center gap-2.5">
-                <Button variant="neutral" mode="stroke" size="small" onClick={regenToken}>
-                  {t("settings.apiRegenerateBtn")}
-                </Button>
-                <span className="text-paragraph-xs text-text-soft-400">{t("settings.apiRegenerateHint")}</span>
+              <div className="group">
+                <p className="sect">{t("settings.languageTitle")}</p>
+                <p className="hint">{t("settings.languageHelp")}</p>
+                <label className="label" htmlFor="st-lang">{t("settings.interfaceLanguageLabel")}</label>
+                <select id="st-lang" className="select" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+                  {LANG_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </div>
-              <p className="m-0 text-paragraph-xs text-text-soft-400">
-                {t("settings.apiAuthHeaderHint")}<code>Authorization: Bearer &lt;token&gt;</code>.
-              </p>
+
+              <div className="group">
+                <p className="sect">{t("settings.geoCheckerTitle")}</p>
+                <p className="hint">
+                  {t("settings.geoCheckerHelp1")}<strong>{t("settings.geoCheckerTestWord")}</strong>{t("settings.geoCheckerHelp2")}
+                </p>
+                <label className="label" htmlFor="st-geo">{t("settings.providerLabel")}</label>
+                <select id="st-geo" className="select" value={s.geo_checker ?? "ip-api.com"} onChange={(e) => setS({ ...s, geo_checker: e.target.value })}>
+                  <option value="ip-api.com">{t("settings.geoIpApiCom")}</option>
+                  <option value="ipapi.co">{t("settings.geoIpapiCo")}</option>
+                  <option value="ipwho.is">{t("settings.geoIpwhoIs")}</option>
+                </select>
+              </div>
+
+              <div className="group">
+                <p className="sect">{t("settings.screenTitle")}</p>
+                <p className="hint">
+                  <strong>{t("settings.screenFromFingerprintWord")}</strong>{t("settings.screenHelp1")}
+                  <strong>{t("settings.screenRealWord")}</strong>{t("settings.screenHelp2")}
+                </p>
+                <label className="label" htmlFor="st-screen">{t("settings.screenModeLabel")}</label>
+                <select id="st-screen" className="select" value={s.screen_resolution_mode ?? "fingerprint"} onChange={(e) => setS({ ...s, screen_resolution_mode: e.target.value })}>
+                  <option value="fingerprint">{t("settings.screenModeFingerprint")}</option>
+                  <option value="real">{t("settings.screenModeReal")}</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {tab === "browser" && (
+            <>
+              <div className="group">
+                <p className="sect">{t("settings.helperTitle")}</p>
+                <p className="hint">
+                  {t("settings.helperHelp1")}
+                  <strong>{t("settings.helperOffersWord")}</strong>{t("settings.helperHelp2")}
+                  <br />
+                  <strong>{t("settings.helperNeverSync")}</strong>{t("settings.helperHelp3")}
+                </p>
+                <Toggle label={t("settings.helperEnableLabel")} checked={helperOn} onChange={(v) => setS({ ...s, helper_enabled: v })} />
+                {helperOn && (
+                  <>
+                    <p className="label">{t("settings.helperReactTo")}</p>
+                    <p className="hint">{t("settings.helperTriggersHelp")}</p>
+                    <div className="seg" role="group" aria-label={t("settings.helperReactTo")}>
+                      {HELPER_KINDS.map((k) => {
+                        const picked = triggers.includes(k.value);
+                        return (
+                          <label key={k.value}>
+                            <span>{t(k.label)}</span>
+                            <input
+                              type="checkbox"
+                              checked={picked}
+                              onChange={() => setS({ ...s, helper_triggers: picked ? triggers.filter((x) => x !== k.value) : [...triggers, k.value] })}
+                            />
+                            <span className="rd" />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="group">
+                <p className="sect">{t("settings.cameraTitle")}</p>
+                <p className="hint">
+                  {t("settings.cameraHelp1")}
+                  <strong>{t("settings.cameraLeaveOn")}</strong>{t("settings.cameraHelp2")}
+                </p>
+                <Toggle label={t("settings.cameraSwitchLabel")} checked={s.camera_enabled ?? true} onChange={(v) => setS({ ...s, camera_enabled: v })} />
+              </div>
+
+              <div className="group">
+                <p className="sect">{t("settings.extraArgsTitle")}</p>
+                <p className="hint">
+                  {t("settings.extraArgsHelp1")}<strong>{t("settings.extraArgsLastWord")}</strong>{t("settings.extraArgsHelp2")}
+                  <br />
+                  {t("settings.extraArgsHelp3")}
+                </p>
+                <textarea
+                  className="field mono-args"
+                  aria-label={t("settings.extraArgsTitle")}
+                  rows={3}
+                  spellCheck={false}
+                  value={s.extra_args ?? ""}
+                  placeholder={"--disable-background-timer-throttling\n--window-size=1280,800"}
+                  onChange={(e) => setS({ ...s, extra_args: e.target.value })}
+                />
+              </div>
+            </>
+          )}
+
+          {tab === "data" && (
+            <div className="group">
+              <p className="sect">{t("settings.dataLocationTitle")}</p>
+              <DataRootCard />
+            </div>
+          )}
+
+          {tab === "api" && (
+            <>
+              <div className="group">
+                <p className="sect">{t("settings.apiTitle")}</p>
+                <p className="hint">
+                  {t("settings.apiHelp1")}<strong>127.0.0.1</strong>{t("settings.apiHelp2")}{" "}
+                  <button
+                    type="button"
+                    className="link-btn is-link"
+                    onClick={() => { openUrl(withUtm("https://docs.proxyshard.com/eng/shardx-launcher-api/binding-and-lifecycle?fallback=true")).catch(() => {}); }}
+                  >
+                    {t("settings.apiRefLink")}
+                  </button>
+                </p>
+                <Toggle label={t("settings.apiEnableLabel")} checked={s.api_enabled ?? true} onChange={(v) => setS({ ...s, api_enabled: v })} />
+                <label className="label" htmlFor="st-port">{t("settings.apiPortLabel")}</label>
+                <input
+                  id="st-port"
+                  className="field narrow"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  inputMode="numeric"
+                  value={s.api_port ?? 40325}
+                  onChange={(e) => setS({ ...s, api_port: Number(e.target.value) || 40325 })}
+                />
+                {api && (
+                  <>
+                    <p className="label">{t("settings.apiBaseUrlLabel")}</p>
+                    <CopyField label={t("settings.apiBaseUrlLabel")} value={api.base_url} />
+                    <p className="label">{t("settings.apiTokenLabel")}</p>
+                    <CopyField label={t("settings.apiTokenLabel")} value={api.token} secret />
+                    <div className="copy-row spaced">
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={regenToken}>
+                        <Icon name="refresh" size={18} />{t("settings.apiRegenerateBtn")}
+                      </button>
+                      <span className="soft small">{t("settings.apiRegenerateHint")}</span>
+                    </div>
+                    <p className="hint">
+                      {t("settings.apiAuthHeaderHint")}<code>Authorization: Bearer &lt;token&gt;</code>.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="group">
+                <p className="sect">{t("settings.mcpTitle")}</p>
+                <p className="hint">
+                  {t("settings.mcpHelp1")}<strong>MCP</strong>{t("settings.mcpHelp2")}
+                </p>
+                <button type="button" className="btn btn-secondary btn-sm" disabled={mcpBusy} onClick={downloadMcp}>
+                  <Icon name="download" size={18} />{mcpBusy ? t("settings.mcpDownloading") : t("settings.mcpDownloadBtn")}
+                </button>
+              </div>
             </>
           )}
         </div>
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.mcpTitle")}>
-        <p className="m-0 mb-2 text-paragraph-xs text-text-soft-400">
-          {t("settings.mcpHelp1")}<strong>MCP</strong>{t("settings.mcpHelp2")}
-        </p>
-        <Button
-          variant="neutral"
-          mode="stroke"
-          size="small"
-          leftIcon={<DownloadIcon className="size-4" />}
-          onClick={downloadMcp}
-          disabled={mcpBusy}
-          isLoading={mcpBusy}
-        >
-          {mcpBusy ? t("settings.mcpDownloading") : t("settings.mcpDownloadBtn")}
-        </Button>
-      </SettingsCard>
-
-      <div className="mt-3.5">
-        <Button
-          variant="primary"
-          mode="filled"
-          size="small"
-      //    leftIcon={<ShardMini />}
-          onClick={async () => { await save(); refreshApi(); }}
-        >
-          {t("settings.saveBtn")}
-        </Button>
+        <div className="savebar">
+          <button type="button" className="btn btn-primary btn-sm" onClick={save}>{t("settings.saveBtn")}</button>
+        </div>
+        </>)}
       </div>
-    </section>
+    </Window>
   );
 }

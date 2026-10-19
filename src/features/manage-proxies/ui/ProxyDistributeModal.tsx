@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Checkbox, DialogModal, SegmentControl, cn } from "@proxyshard/shardx-ui-kit";
-import { CSSelect } from "../../../shared/ui/CSSelect";
+import { Chips, FormDialog } from "../../../shared/ui/hv";
 import { useT } from "../../../shared/i18n";
 import { useProxy } from "../../../entities/proxy";
 
@@ -59,136 +58,100 @@ export function ProxyDistributeModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <DialogModal
-      open
-      onClose={onClose}
+    <FormDialog
+      wide
       title={
         picked.length === 1
           ? t("proxyDistributeModal.titleOne")
           : t("proxyDistributeModal.titleMany", { n: picked.length })
       }
-      maxWidthClassName="max-w-[760px]"
       confirmLabel={
         willBind === 0
           ? t("proxyDistributeModal.nothingToBind")
           : t("proxyDistributeModal.bindCount", { n: willBind })
       }
-      onConfirm={run}
-      isLoading={busy}
-      isDisabled={busy || willBind === 0}
       cancelLabel={t("proxyDistributeModal.cancel")}
-      onCancel={onClose}
+      confirmDisabled={busy || willBind === 0}
+      initialFocus="#dist-folder"
+      onClose={onClose}
+      onConfirm={run}
     >
-      <div className="flex flex-col gap-3.5 py-4">
-        <div className="grid grid-cols-2 gap-3">
-          <CSSelect
-            title={t("proxyDistributeModal.profilesFrom")}
-            value={folder}
-            onChange={setFolder}
-            isSearchable={folders.length > 8}
+      <div className="row2">
+        <div>
+          <label className="label" htmlFor="dist-folder">{t("proxyDistributeModal.profilesFrom")}</label>
+          <select id="dist-folder" className="select" value={folder} onChange={(e) => setFolder(e.target.value)}>
+            <option value="all">{t("proxyDistributeModal.everyFolder")}</option>
+            {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div>
+          <p className="label">{t("proxyDistributeModal.applyTo")}</p>
+          <Chips
+            name="dist-scope"
+            label={t("proxyDistributeModal.applyTo")}
+            value={scope}
             options={[
-              { value: "all", label: t("proxyDistributeModal.everyFolder") },
-              ...folders.map((f) => ({ value: f, label: f })),
+              { value: "unbound", label: t("proxyDistributeModal.scopeUnbound") },
+              { value: "all", label: t("proxyDistributeModal.scopeAll") },
             ]}
+            onChange={setScope}
           />
-          <label className="flex flex-col gap-1">
-            <span className="text-label-base font-medium text-text-strong-900">{t("proxyDistributeModal.applyTo")}</span>
-            <SegmentControl
-              size="small"
-              className="w-full *:flex-1"
-              value={scope}
-              items={[
-                { value: "unbound", label: t("proxyDistributeModal.scopeUnbound") },
-                { value: "all", label: t("proxyDistributeModal.scopeAll") },
-              ]}
-              onChange={(v) => setScope(v as "unbound" | "all")}
-            />
-          </label>
         </div>
-
-        {scope === "all" && boundCount > 0 && (
-          <p className="m-0 rounded-8 bg-warning-alpha-16 px-2.5 py-1.5 text-paragraph-xs text-text-sub-600 ring-1 ring-inset ring-warning-base/30">
-            {boundCount === 1
-              ? t("proxyDistributeModal.replaceWarnOne")
-              : t("proxyDistributeModal.replaceWarnMany", { n: boundCount })}
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-subheading-2xs text-text-soft-400">
-              {t("proxyDistributeModal.proxiesCount", { n: picked.length })}
-            </span>
-            <div className="max-h-[240px] overflow-auto rounded-8 ring-1 ring-inset ring-stroke-soft-200">
-              {picked.map((p, i) => (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "flex items-center gap-2 border-t border-stroke-soft-200 px-2.5 py-1.5 first:border-t-0",
-                    i >= targets.length && "opacity-40",
-                  )}
-                >
-                  <span className="mono w-5 shrink-0 text-[10.5px] text-text-disabled-300">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-paragraph-xs text-text-sub-600">
-                    {p.name || `${p.host}:${p.port}`}
-                  </span>
-                  {p.country && (
-                    <span className="shrink-0 text-[10.5px] font-bold tracking-[0.5px] text-text-soft-400">
-                      {p.country}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-subheading-2xs text-text-soft-400">
-              {t("proxyDistributeModal.profilesCount", {
-                n: targets.length,
-                total: candidates.length,
-              })}
-            </span>
-            <div className="max-h-[240px] overflow-auto rounded-8 ring-1 ring-inset ring-stroke-soft-200">
-              {candidates.map((p, i) => {
-                const on = chosen.has(p.id);
-                const beyond = on && i >= picked.length;
-                return (
-                  <label
-                    key={p.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 border-t border-stroke-soft-200 px-2.5 py-1.5 first:border-t-0 hover:bg-bg-weak-50",
-                      beyond && "opacity-40",
-                    )}
-                  >
-                    <Checkbox
-                      checked={on}
-                      onChange={() => {
-                        const next = new Set(chosen);
-                        if (on) next.delete(p.id); else next.add(p.id);
-                        setChosen(next);
-                      }}
-                    />
-                    <span className="mono w-5 shrink-0 text-[10.5px] text-text-disabled-300">{i + 1}</span>
-                    <span className="min-w-0 flex-1 truncate text-paragraph-xs text-text-sub-600">
-                      {p.name}
-                    </span>
-                  </label>
-                );
-              })}
-              {candidates.length === 0 && (
-                <div className="px-2.5 py-4 text-center text-paragraph-xs text-text-soft-400">
-                  {t("proxyDistributeModal.noMatches")}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <p className="m-0 text-paragraph-xs text-text-soft-400">
-          {t("proxyDistributeModal.pairingNote")}
-        </p>
       </div>
-    </DialogModal>
+
+      {scope === "all" && boundCount > 0 && (
+        <p className="callout-warn" role="status">
+          {boundCount === 1
+            ? t("proxyDistributeModal.replaceWarnOne")
+            : t("proxyDistributeModal.replaceWarnMany", { n: boundCount })}
+        </p>
+      )}
+
+      <div className="dist-cols">
+        <div>
+          <p className="dist-head">{t("proxyDistributeModal.proxiesCount", { n: picked.length })}</p>
+          <div className="dist-list">
+            {picked.map((p, i) => (
+              <div key={p.id} className={i >= targets.length ? "dist-row is-dim" : "dist-row"}>
+                <span className="n mono">{i + 1}</span>
+                <span className="nm">{p.name || `${p.host}:${p.port}`}</span>
+                {p.country && <span className="cc">{p.country}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="dist-head">
+            {t("proxyDistributeModal.profilesCount", { n: targets.length, total: candidates.length })}
+          </p>
+          <div className="dist-list">
+            {candidates.map((p, i) => {
+              const on = chosen.has(p.id);
+              const beyond = on && i >= picked.length;
+              return (
+                <label key={p.id} className={beyond ? "dist-row is-dim" : "dist-row"}>
+                  <input
+                    type="checkbox"
+                    className="chk"
+                    checked={on}
+                    onChange={() => {
+                      const next = new Set(chosen);
+                      if (on) next.delete(p.id); else next.add(p.id);
+                      setChosen(next);
+                    }}
+                  />
+                  <span className="n mono">{i + 1}</span>
+                  <span className="nm">{p.name}</span>
+                </label>
+              );
+            })}
+            {candidates.length === 0 && <div className="dist-empty">{t("proxyDistributeModal.noMatches")}</div>}
+          </div>
+        </div>
+      </div>
+
+      <p className="hint">{t("proxyDistributeModal.pairingNote")}</p>
+    </FormDialog>
   );
 }

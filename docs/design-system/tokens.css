@@ -1,0 +1,96 @@
+/* ==========================================================================
+   HeroV Browser — design tokens
+   Source of truth for color, shape, elevation, motion, spacing and type.
+   Palette = ShardX brand seed #535efd expanded to Material tonal ramps (HCT hue 283, chroma 74);
+   regenerate with tools/gen-palette.mjs. Components must only use these variables — no hard-coded
+   colors in component or window CSS. Load order: tokens.css → components.css → (window CSS).
+   Theme switch: <html data-theme="light|dark">.
+   ========================================================================== */
+:root {
+  --font: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+
+  /* brand ramp (HCT tones of the seed) */
+  --p10: #00026c; --p20: #0004aa; --p30: #1d26d1; --p40: #3c47e8; --p50: #5964ff;
+  --p60: #7b85ff; --p70: #9da4ff; --p80: #bec2ff; --p90: #e0e0ff; --p95: #f1efff;
+  --brand: #535efd; --brand-hover: #4348e6; --brand-press: #3a3fd0; --brand-lift: #6a74ff;
+  --sky: #47c2ff;
+
+  /* surfaces (neutral-variant tonal steps, cool) */
+  --canvas: #fbf8ff;
+  --surface: #ffffff;
+  --surface-low: #f5f2fd;
+  --surface-mid: #efecf8;
+  --surface-high: #e9e7f2;
+  --surface-highest: #e3e1ec;
+  --on-surface: #1b1b1f;
+  --on-surface-2: #46464f;
+  --on-surface-3: #5e5d67;
+  --outline: #777680;
+  --outline-variant: #c7c5d0;
+
+  /* roles */
+  --primary: var(--brand);
+  --primary-hover: var(--brand-hover);
+  --on-primary: #ffffff;
+  --primary-text: var(--p40);
+  --tint: color-mix(in srgb, var(--brand) 11%, var(--surface));
+  --tint-strong: color-mix(in srgb, var(--brand) 20%, var(--surface));
+  --on-tint: var(--p10);
+  --rail-bg: var(--surface-low);
+
+  /* semantic status (ShardX values, text-safe variants) */
+  --success: #0b7a45; --success-container: #dff7ea; --run: #0e8453;
+  --error: #ba1a1a; --error-container: #ffdad6;
+  --warning: #a14b00; --warning-container: #ffe9d6;
+
+  /* state layers */
+  --hover: color-mix(in srgb, var(--primary-text) 8%, transparent);
+  --press: color-mix(in srgb, var(--primary-text) 12%, transparent);
+
+  /* elevation (tonal surface + soft indigo shadow) */
+  --e1: 0 1px 2px rgb(40 44 140 / .10), 0 1px 3px 1px rgb(40 44 140 / .06);
+  --e2: 0 1px 2px rgb(40 44 140 / .12), 0 2px 6px 2px rgb(40 44 140 / .08);
+  --e3: 0 4px 8px 3px rgb(40 44 140 / .10), 0 1px 3px rgb(40 44 140 / .14);
+  --glow: 0 6px 18px rgb(83 94 253 / .38);
+
+  /* shape */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 28px; --r-full: 999px;
+
+  /* motion */
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --ease-out: cubic-bezier(.05, .7, .1, 1);
+  --dur-fast: .15s; --dur-med: .25s; --dur-slow: .4s;
+
+  /* spacing (4 px base) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  /* type scale */
+  --fs-title: 28px; --fs-body: 15px; --fs-table: 14px; --fs-label: 13px; --fs-micro: 11px;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; /* native scrollbars, form controls and dialogs follow the theme */
+  --canvas: #12131a;
+  --surface: #1b1b23;
+  --surface-low: #171820;
+  --surface-mid: #1f1f27;
+  --surface-high: #292931;
+  --surface-highest: #34343c;
+  --on-surface: #e5e1e6;
+  --on-surface-2: #c7c5d0;
+  --on-surface-3: #acaab4;
+  --outline: #91909a;
+  --outline-variant: #46464f;
+  --primary-text: var(--p80);
+  --tint: color-mix(in srgb, var(--brand) 24%, var(--surface));
+  --tint-strong: color-mix(in srgb, var(--brand) 38%, var(--surface));
+  --on-tint: #e0e0ff;
+  --rail-bg: #0d0e15;
+  --success: #6ee7a8; --success-container: #12382a; --run: #0e8453;
+  --error: #ffb4ab; --error-container: #5c1a17;
+  --warning: #ffb77c; --warning-container: #4a2a0e;
+  --e1: 0 1px 2px rgb(0 0 0 / .5), 0 1px 3px 1px rgb(0 0 0 / .3);
+  --e2: 0 1px 2px rgb(0 0 0 / .5), 0 2px 6px 2px rgb(0 0 0 / .32);
+  --e3: 0 4px 8px 3px rgb(0 0 0 / .36), 0 1px 3px rgb(0 0 0 / .5);
+  --glow: 0 6px 20px rgb(83 94 253 / .45);
+}

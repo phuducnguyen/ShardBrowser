@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, DialogModal } from "@proxyshard/shardx-ui-kit";
-import { Topbar } from "../../shared/ui/Topbar";
+import { FormDialog, Icon, Window } from "../../shared/ui/hv";
 import { useStoreChanged } from "../../shared/hooks/useStoreChanged";
-import { AddIcon, DeleteIcon, FolderIcon, GlobeIcon, NavExtensionsIcon } from "../../shared/icons";
-import { Field } from "../../shared/ui/Field";
 import { useExtensions, type ExtensionEntry } from "../../entities/extension";
 import { fmtBytes } from "../../shared/lib/utils";
 import { useT } from "../../shared/i18n";
@@ -12,37 +9,26 @@ function Card({ e }: { e: ExtensionEntry }) {
   const t = useT();
   const remove = useExtensions((s) => s.remove);
   return (
-    <article className="flex flex-col gap-2.5 rounded-xl bg-bg-white-0 p-3.5 ring-1 ring-inset ring-stroke-soft-200">
-      <div className="flex items-start gap-2.5">
+    <article className="ext-card">
+      <div className="ext-head">
         {e.icon ? (
-          <img src={e.icon} alt="" className="size-10 shrink-0 rounded-lg object-contain" />
+          <img src={e.icon} alt="" className="ext-ico" />
         ) : (
-          <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-alpha-10 text-primary-base">
-            <NavExtensionsIcon className="size-5" />
-          </div>
+          <div className="ext-ico is-blank"><Icon name="puzzle" size={22} /></div>
         )}
-        <div className="min-w-0 flex-1">
-          <h3 className="m-0 truncate text-label-xs text-text-strong-950" title={e.name}>{e.name}</h3>
-          <div className="mt-0.5 flex items-center gap-1.5 text-paragraph-xs text-text-soft-400">
-            {e.version && <span>v{e.version}</span>}
-            <span>·</span>
+        <div className="ext-meta">
+          <h3 title={e.name}>{e.name}</h3>
+          <div className="sub">
+            {e.version && <span>v{e.version} · </span>}
             <span>{fmtBytes(e.size_bytes)}</span>
           </div>
         </div>
       </div>
-      <p className="m-0 line-clamp-3 min-h-[2.4em] text-paragraph-xs text-text-sub-600">
-        {e.description || <span className="text-text-soft-400">{t("extensions.noDescription")}</span>}
-      </p>
-      <div className="flex justify-end">
-        <Button
-          variant="error"
-          mode="ghost"
-          size="2xsmall"
-          leftIcon={<DeleteIcon className="size-3.5" />}
-          onClick={() => remove(e)}
-        >
-          {t("extensions.remove")}
-        </Button>
+      <p className="ext-desc">{e.description || <span className="soft">{t("extensions.noDescription")}</span>}</p>
+      <div className="fp-foot">
+        <button type="button" className="btn btn-danger btn-sm push" onClick={() => remove(e)}>
+          <Icon name="trash" size={18} />{t("extensions.remove")}
+        </button>
       </div>
     </article>
   );
@@ -55,30 +41,30 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
   const busy = useExtensions((s) => s.busy);
   const importUrl = useExtensions((s) => s.importUrl);
   return (
-    <DialogModal
-      open
-      onClose={onClose}
+    <FormDialog
+      mid
       title={t("extensions.linkTitle")}
       confirmLabel={busy ? t("extensions.downloading") : t("extensions.download")}
-      onConfirm={() => importUrl(url)}
-      isLoading={busy}
-      isDisabled={busy || !url.trim()}
       cancelLabel={t("extensions.cancel")}
-      onCancel={onClose}
+      confirmDisabled={busy || !url.trim()}
+      initialFocus="#ext-url"
+      onClose={onClose}
+      onConfirm={() => importUrl(url)}
     >
-      <div className="flex w-[460px] flex-col gap-3 py-4">
-        <Field
-          label={t("extensions.linkFieldLabel")}
+      <div>
+        <label className="label" htmlFor="ext-url">{t("extensions.linkFieldLabel")}</label>
+        <input
+          id="ext-url"
+          className="field"
+          autoComplete="off"
+          spellCheck={false}
           value={url}
-          onChange={setUrl}
           placeholder="https://chromewebstore.google.com/detail/…"
-          mono
+          onChange={(e) => setUrl(e.target.value)}
         />
-        <p className="m-0 text-paragraph-xs text-text-soft-400">
-          {t("extensions.linkHelp")}
-        </p>
       </div>
-    </DialogModal>
+      <p className="hint">{t("extensions.linkHelp")}</p>
+    </FormDialog>
   );
 }
 
@@ -108,60 +94,50 @@ export function ExtensionsPage() {
   }, [items, search]);
 
   return (
-    <section className="flex flex-col">
-      <Topbar crumbs={[t("extensions.crumbLibrary"), t("extensions.crumbExtensions")]} search={search} onSearch={setSearch} />
-
-      <div className="mb-3.5 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-title-h5 text-text-strong-950">{t("extensions.title")}</h1>
-          <p className="m-0 mt-1 max-w-[70ch] text-paragraph-xs text-text-soft-400">
-            {t("extensions.pageHelp")}
-          </p>
-        </div>
-        <div className="flex flex-none items-center gap-2">
-          <Button
-            variant="neutral" mode="stroke" size="small" disabled={busy}
-            leftIcon={<FolderIcon className="size-4" />}
-            onClick={importFolder}
-          >
-            {t("extensions.unpackedFolder")}
-          </Button>
-          <Button
-            variant="neutral" mode="stroke" size="small" disabled={busy}
-            leftIcon={<GlobeIcon className="size-4" />}
-            onClick={() => setLinkOpen(true)}
-          >
-            {t("extensions.fromLink")}
-          </Button>
-          <Button
-            variant="primary" mode="filled" size="small" disabled={busy} isLoading={busy}
-            leftIcon={<AddIcon className="size-4" />}
-            onClick={importFiles}
-          >
-            {t("extensions.addFiles")}
-          </Button>
-        </div>
-      </div>
-
-      {shown.length === 0 ? (
-        <div className="flex flex-col items-center gap-2.5 rounded-lg bg-bg-white-0 px-6 py-14 text-center ring-1 ring-inset ring-stroke-soft-200">
-          <div className="grid size-14 place-items-center rounded-[14px] bg-primary-alpha-10 text-primary-base ring-1 ring-inset ring-primary-alpha-24">
-            <NavExtensionsIcon className="size-6" />
+    <>
+      <Window
+        single
+        title={t("extensions.title")}
+        actions={
+          <>
+            <button type="button" className="btn btn-text btn-sm" disabled={busy} onClick={importFolder}>
+              <Icon name="folder" size={18} />{t("extensions.unpackedFolder")}
+            </button>
+            <button type="button" className="btn btn-text btn-sm" disabled={busy} onClick={() => setLinkOpen(true)}>
+              <Icon name="link" size={18} />{t("extensions.fromLink")}
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={importFiles}>
+              <Icon name="plus" />{t("extensions.addFiles")}
+            </button>
+          </>
+        }
+      >
+        <div className="card stack clip">
+          <div className="toolbar">
+            <p className="hint" style={{ margin: 0 }}>{t("extensions.pageHelp")}</p>
+            <span className="grow" />
+            <label className="search">
+              <Icon name="search" size={18} />
+              <span className="sr-only">{t("extensions.searchLabel")}</span>
+              <input type="search" placeholder={t("extensions.searchPlaceholder")} autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </label>
           </div>
-          <h3 className="m-0 text-label-sm text-text-strong-950">
-            {items.length === 0 ? t("extensions.emptyTitle") : t("extensions.noMatchTitle")}
-          </h3>
-          <p className="m-0 max-w-[420px] text-paragraph-sm text-text-sub-600">
-            {t("extensions.emptyHelp")}
-          </p>
+          <div className="fp-body">
+            {shown.length === 0 ? (
+              <div className="empty-hero">
+                <div className="empty-ico"><Icon name="puzzle" size={26} /></div>
+                <h3>{items.length === 0 ? t("extensions.emptyTitle") : t("extensions.noMatchTitle")}</h3>
+                <p>{t("extensions.emptyHelp")}</p>
+              </div>
+            ) : (
+              <div className="fp-grid ext-grid">
+                {shown.map((e) => <Card key={e.id} e={e} />)}
+              </div>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5 pb-6">
-          {shown.map((e) => <Card key={e.id} e={e} />)}
-        </div>
-      )}
-
+      </Window>
       {linkOpen && <LinkDialog onClose={() => setLinkOpen(false)} />}
-    </section>
+    </>
   );
 }

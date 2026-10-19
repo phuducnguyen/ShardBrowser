@@ -55,7 +55,7 @@ export const DASHBOARD_URL = withUtm("https://dashboard.proxyshard.com/");
 // Docs URL behind the proxy UDP/No-UDP pill.
 export const UDP_DOCS_URL = withUtm("https://docs.proxyshard.com/eng/our-products/about-udp");
 
-export const GH_REPO_URL = "https://github.com/ProxyShard/ShardBrowser";
+export const GH_REPO_URL = "https://github.com/phuducnguyen/ShardBrowser";
 
 /// Build accept-language chain (primary → base → English fallback).
 export function deriveAcceptLanguage(loc: string): string {

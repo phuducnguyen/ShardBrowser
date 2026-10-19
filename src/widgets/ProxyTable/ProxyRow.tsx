@@ -1,88 +1,134 @@
 import { useRef } from "react";
-import { Checkbox } from "@proxyshard/shardx-ui-kit";
-import Badge from "../../shared/ui/Badge";
-import type { ContextItem } from "../../shared/types";
+import { CountryFlag } from "../../shared/ui/CountryFlag";
+import { Icon, KebabMenu } from "../../shared/ui/hv";
+import { clip } from "../../shared/lib/clipboard";
+import { toast } from "../../shared/model/toast";
 import { useT } from "../../shared/i18n";
-import {
-  useProxy,
-  type ProxyEntry,
-} from "../../entities/proxy";
-import { ProxyRowActions, RenameProxyCell } from "../../features/manage-proxies";
+import { latencyMeter, proxyStatus, useProxy, type ProxyEntry } from "../../entities/proxy";
 
-import { ProxyTypeBadge, ProxyCountryCell, ProxyTestResult } from "../../entities/proxy";
-
-export function ProxyRow({ proxy, profileCount, onMenu }: {
-  proxy: ProxyEntry;
-  profileCount: number;
-  onMenu: (e: React.MouseEvent, items: ContextItem[]) => void;
-}) {
+export function ProxyRow({ proxy, profileCount }: { proxy: ProxyEntry; profileCount: number }) {
   const t = useT();
   const snap = useProxy((s) => s.snapshots[proxy.id]);
   const busy = useProxy((s) => !!s.proxyTesting[proxy.id]);
-  const isSel = useProxy((s) => s.proxySel.has(proxy.id));
+  const selected = useProxy((s) => s.proxySel.has(proxy.id));
   const selectProxy = useProxy((s) => s.selectProxy);
   const selectRangeTo = useProxy((s) => s.selectRangeTo);
   const testProxy = useProxy((s) => s.testProxy);
   const removeProxy = useProxy((s) => s.removeProxy);
   const setEditing = useProxy((s) => s.setEditing);
   const setInfoFor = useProxy((s) => s.setInfoFor);
-
-  // Handled in mousedown only: a click on the checkbox's <label> reaches the
-  // row twice, and applying the range twice would undo it.
+  const row = useRef<HTMLTableRowElement>(null);
+  // A shift-press selects a run in mousedown; the change event that follows must not toggle it again.
   const shiftPress = useRef(false);
 
+  const status = proxyStatus(snap, busy);
+  const address = `${proxy.host}:${proxy.port}`;
+  const name = proxy.name || address;
+  const cc = snap?.country_code || proxy.country;
+  const place = snap?.country || cc;
+
+  const showDetails = () => {
+    const rect = row.current?.getBoundingClientRect();
+    setInfoFor({ proxy, anchor: { x: (rect?.right ?? 0) - 120, y: (rect?.bottom ?? 0) } });
+  };
+  const assign = () => useProxy.setState({ proxySel: new Set([proxy.id]), anchorId: proxy.id, distributeOpen: true });
+  const copy = () => {
+    clip.write(address).then(
+      () => toast.ok(t("proxyRow.copied")),
+      (e) => toast.err(String(e)),
+    );
+  };
+
   return (
-    <div
-      className="relative border-t border-stroke-soft-200 first:border-t-0"
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement;
-        shiftPress.current = e.button === 0 && e.shiftKey && !t.closest("button, a");
-        if (!shiftPress.current) return;
-        // Stops the text selection a shift-drag begins, and the label
-        // activation that would reach the checkbox.
-        e.preventDefault();
-        selectRangeTo(proxy.id);
-      }}
-      onClick={(e) => { if (shiftPress.current) e.preventDefault(); }}
-      onContextMenu={(e) =>
-        onMenu(e, [
-          { label: t("proxyRow.menuTest"), onClick: () => testProxy(proxy) },
-          { label: t("proxyRow.menuViewDetails"), onClick: () => setInfoFor({ proxy, anchor: { x: e.clientX, y: e.clientY } }) },
-          { label: t("proxyRow.menuEdit"), onClick: () => setEditing(proxy) },
-          { sep: true, label: "", onClick: () => { } },
-          { label: t("proxyRow.menuDelete"), onClick: () => removeProxy(proxy.id), danger: true },
-        ])
-      }
-    >
-      <div className="p-cols transition-colors hover:bg-bg-weak-50">
-        <div>
-          <Checkbox
-            checked={isSel}
-            onChange={() => { if (!shiftPress.current) selectProxy(!isSel, [proxy]); }}
-          />
-        </div>
-        <RenameProxyCell proxy={proxy} />
-        <div><ProxyTypeBadge kind={proxy.kind} /></div>
-        <div className="min-w-0 overflow-hidden">
-          <span
-            className="mono small inline-block max-w-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap align-middle text-text-sub-600 transition-colors hover:text-primary-base"
-            onClick={() => { if (!shiftPress.current) setEditing(proxy); }}
-            title={t("proxyRow.editProxyTitle")}
-          >
-            {proxy.host}:{proxy.port}
-          </span>
-        </div>
-        <div><ProxyCountryCell snap={snap} fallback={proxy.country} /></div>
-        <div>
-          <Badge color="gray" variant='filled' size="small" title={t("proxyRow.boundProfilesTitle", { n: profileCount })}>
-            {profileCount}
-          </Badge>
-        </div>
-        <div className="min-w-0">
-          <ProxyTestResult snap={snap} kind={proxy.kind} busy={busy} />
-        </div>
-        <ProxyRowActions proxy={proxy} />
-      </div>
-    </div>
+    <tr ref={row} data-id={proxy.id}>
+      <td>
+        <input
+          className="chk"
+          type="checkbox"
+          aria-label={t("proxyRow.select", { name })}
+          checked={selected}
+          onMouseDown={(e) => {
+            shiftPress.current = e.shiftKey;
+            if (e.shiftKey) { e.preventDefault(); selectRangeTo(proxy.id); }
+          }}
+          onChange={() => {
+            if (shiftPress.current) { shiftPress.current = false; return; }
+            selectProxy(!selected, [proxy]);
+          }}
+        />
+      </td>
+      <td>
+        <span className="name">
+          {name}
+          {(proxy.username || proxy.password) && (
+            <span className="dim" title={t("proxyRow.requiresLogin")}>
+              <Icon name="lock" size={14} />
+              <span className="sr-only">{t("proxyRow.requiresLogin")}</span>
+            </span>
+          )}
+        </span>
+        <span className="sub">{proxy.kind.toUpperCase()} · {address}</span>
+      </td>
+      <td>
+        {place ? <span className="loc"><CountryFlag cc={cc} height={14} />{place}</span> : <span className="dim">—</span>}
+      </td>
+      <td>
+        <StatusPill status={status} />
+        {status === "alive" && proxy.kind === "socks5" && snap && (
+          <span className="sub">{snap.udp_ms != null ? t("proxyRow.udpOk", { ms: snap.udp_ms }) : t("proxyRow.udpNone")}</span>
+        )}
+      </td>
+      <td>
+        {status === "alive" && snap?.tcp_ms != null ? <Latency ms={snap.tcp_ms} /> : <span className="meter none">—</span>}
+      </td>
+      <td>
+        {profileCount > 0
+          ? (profileCount === 1 ? t("proxyRow.usedOne") : t("proxyRow.usedMany", { n: profileCount }))
+          : <span className="dim">—</span>}
+      </td>
+      <td className="actions-cell">
+        <button
+          type="button"
+          className="tool-btn"
+          aria-label={t("proxyRow.check", { name })}
+          title={t("proxyRow.menuCheck")}
+          disabled={busy}
+          onClick={() => void testProxy(proxy)}
+        >
+          <Icon name="refresh" size={20} />
+        </button>
+        <KebabMenu
+          label={t("proxyRow.actions", { name })}
+          items={[
+            { label: t("proxyRow.menuCheck"), onSelect: () => void testProxy(proxy) },
+            { label: t("proxyRow.menuEdit"), onSelect: () => setEditing(proxy) },
+            { label: t("proxyRow.menuDetails"), onSelect: showDetails },
+            { label: t("proxyRow.menuCopy"), onSelect: copy },
+            { label: t("proxyRow.menuAssign"), onSelect: assign },
+            { label: t("proxyRow.menuDelete"), onSelect: () => void removeProxy(proxy.id), danger: true },
+          ]}
+        />
+      </td>
+    </tr>
+  );
+}
+
+function StatusPill({ status }: { status: ReturnType<typeof proxyStatus> }) {
+  const t = useT();
+  if (status === "alive") return <span className="status">{t("proxyStatus.alive")}</span>;
+  if (status === "dead") return <span className="status is-error">{t("proxyStatus.dead")}</span>;
+  if (status === "checking") {
+    return <span className="status is-warn"><span className="spin sm" aria-hidden="true" />{t("proxyStatus.checking")}</span>;
+  }
+  return <span className="status is-idle">{t("proxyStatus.new")}</span>;
+}
+
+function Latency({ ms }: { ms: number }) {
+  const { tone, fill } = latencyMeter(ms);
+  return (
+    <span className={`meter ${tone}`}>
+      <span><i style={{ width: `${fill}%` }} /></span>
+      {ms} ms
+    </span>
   );
 }

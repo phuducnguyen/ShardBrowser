@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "@proxyshard/shardx-ui-kit";
+import "@fontsource-variable/figtree";
 import "./styles/index.css";
 import "./styles/app.css";
+import "./styles/herov.generated.css";
 import "flag-icons/css/flag-icons.min.css";
 import { App } from "./App";
 import { SyncPanel } from "../widgets/SyncPanel";

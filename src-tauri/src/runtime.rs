@@ -680,7 +680,7 @@ pub async fn runtime_install(window: Window, force: bool) -> Result<RuntimeStatu
     // Refused rather than installed: this build could not configure it.
     if engine_needs_newer_launcher(&manifest) {
         return Err(format!(
-            "This engine build needs ShardX Launcher {} or newer — you are on {}. Update the launcher first.",
+            "This engine build needs HeroV Browser {} or newer — you are on {}. Update the launcher first.",
             manifest.min_launcher_version.as_deref().unwrap_or("?"),
             launcher_version(),
         ));

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DialogModal, Select, Textarea } from "@proxyshard/shardx-ui-kit";
+import { FormDialog } from "../../../shared/ui/hv";
 import { toast } from "../../../shared/model/toast";
 import { useT } from "../../../shared/i18n";
 import type { ProfileMeta } from "../../../entities/profile";
@@ -39,43 +39,40 @@ export function QuickEditDialog({
   };
 
   return (
-    <DialogModal
-      open
-      onClose={onClose}
+    <FormDialog
       title={kind === "proxy"
         ? t("quickEditDialog.bindProxyTitle", { name: profile.name })
         : t("quickEditDialog.editNotesTitle", { name: profile.name })}
       confirmLabel={t("quickEditDialog.save")}
-      onConfirm={kind === "proxy" ? saveProxy : saveNotes}
       cancelLabel={t("quickEditDialog.cancel")}
-      onCancel={onClose}
+      onConfirm={kind === "proxy" ? () => void saveProxy() : () => void saveNotes()}
+      onClose={onClose}
     >
-      <div className="py-4">
-        {kind === "proxy" ? (
-          <Select
-            label={t("quickEditDialog.proxyLabel")}
-            size="small"
-            isSearchable
-            value={proxyId ?? ""}
-            onChange={(v) => setProxyId(v || null)}
-            options={[
-              { value: "", label: t("quickEditDialog.directConnection") },
-              ...proxies.map((px) => ({
-                value: px.id,
-                label: `${px.name || `${px.host}:${px.port}`} · ${px.country || px.kind}`,
-              })),
-            ]}
-          />
-        ) : (
-          <Textarea
-            label={t("quickEditDialog.notesLabel")}
+      {kind === "proxy" ? (
+        <div>
+          <label className="label" htmlFor="qe-proxy">{t("quickEditDialog.proxyLabel")}</label>
+          <select id="qe-proxy" className="select" value={proxyId ?? ""} onChange={(e) => setProxyId(e.target.value || null)}>
+            <option value="">{t("quickEditDialog.directConnection")}</option>
+            {proxies.map((px) => (
+              <option key={px.id} value={px.id}>
+                {`${px.name || `${px.host}:${px.port}`} · ${px.country || px.kind}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div>
+          <label className="label" htmlFor="qe-notes">{t("quickEditDialog.notesLabel")}</label>
+          <textarea
+            id="qe-notes"
+            className="field"
             rows={6}
+            style={{ height: "auto", padding: "12px 16px", resize: "vertical" }}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            autoFocus
           />
-        )}
-      </div>
-    </DialogModal>
+        </div>
+      )}
+    </FormDialog>
   );
 }

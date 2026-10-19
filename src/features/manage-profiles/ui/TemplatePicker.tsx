@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Modal } from "@proxyshard/shardx-ui-kit";
+import { FormDialog } from "../../../shared/ui/hv";
 import type { FingerprintEntry } from "../../../entities/fingerprint";
 import { fingerprintList } from "../../../entities/fingerprint";
 import { hostPlatform } from "../../../entities/profile";
 import { useGpuCompat } from "../../../shared/model/gpuCompat";
-import { IncompatibleBadge } from "../../gpu-compat";
+import { useT } from "../../../shared/i18n";
 
 export function TemplatePicker({
   fingerprints,
@@ -17,6 +17,7 @@ export function TemplatePicker({
   onPick: (id: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [lib, setLib] = useState<FingerprintEntry[]>(fingerprints ?? []);
   const [host, setHost] = useState<string>("");
   useEffect(() => {
@@ -35,42 +36,35 @@ export function TemplatePicker({
   useEffect(() => { void loadCompat(); }, [loadCompat]);
 
   return (
-    <Modal
-      open
+    <FormDialog
+      wide
+      title={t("templatePicker.title", { os: host })}
+      cancelLabel={t("templatePicker.cancel")}
       onClose={onClose}
-      title={`Pick a ${host || ""} fingerprint`}
-      maxWidthClassName="max-w-[880px]"
+      initialFocus=".tpl"
     >
       {tpls.length === 0 ? (
-        <div className="rounded-10 bg-bg-weak-50 px-4 py-8 text-center text-paragraph-sm text-text-sub-600">
-          No {host} fingerprints in the library yet. Add some on the
-          Fingerprints page (or drop JSONs into the library folder).
-        </div>
+        <p className="hint">{t("templatePicker.empty", { os: host })}</p>
       ) : (
-        <div className="grid max-h-[60vh] grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 overflow-y-auto">
-          {tpls.map((t) => (
-            <button
-              key={t.id}
-              className="relative flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-10 bg-bg-white-0 px-4 py-3.5 pb-3 text-left ring-1 ring-inset ring-stroke-soft-200 transition-all hover:bg-bg-weak-50 hover:ring-primary-base active:translate-y-px"
-              onClick={() => onPick(t.id)}
-            >
-              <div
-                className="absolute left-0 right-0 top-0 h-[3px] opacity-85"
-                style={{ background: t.tag_color }}
-              />
-              <div className="mt-1 flex items-center justify-between gap-2 text-subheading-2xs">
-                <span className="text-primary-base">{t.platform}</span>
-                <span className="flex items-center gap-1.5">
-                  {compatById[t.id] && <IncompatibleBadge compat={compatById[t.id]} />}
-                  <span className="text-text-soft-400">Chrome {t.chrome}</span>
+        <div className="tpl-grid">
+          {tpls.map((tpl) => (
+            <button key={tpl.id} type="button" className="tpl" onClick={() => onPick(tpl.id)}>
+              <span className="tpl-bar" style={{ background: tpl.tag_color }} />
+              <span className="tpl-top">
+                <span className="os">{tpl.platform}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {compatById[tpl.id] && !compatById[tpl.id].compatible && (
+                    <span className="chip-warn" title={t("profileEditor.gpuIncompatible")}>{t("incompatibleNotice.badgeLabel")}</span>
+                  )}
+                  Chrome {tpl.chrome}
                 </span>
-              </div>
-              <div className="mt-0.5 text-label-sm text-text-strong-950">{t.label}</div>
-              <div className="mono text-[11.5px] text-text-soft-400">{t.gpu}</div>
+              </span>
+              <span className="tpl-name">{tpl.label}</span>
+              <span className="tpl-gpu">{tpl.gpu}</span>
             </button>
           ))}
         </div>
       )}
-    </Modal>
+    </FormDialog>
   );
 }

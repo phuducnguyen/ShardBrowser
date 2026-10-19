@@ -1,131 +1,126 @@
-import { useEffect, useMemo, useState } from "react";
-import { Checkbox, Pagination } from "@proxyshard/shardx-ui-kit";
-import { ShardLogo } from "../../shared/icons";
+import { useEffect, useState } from "react";
+import { Chips, Icon, type ChipOption } from "../../shared/ui/hv";
 import { useT } from "../../shared/i18n";
-import { useContextMenu } from "../../shared/hooks/useContextMenu";
-import {
-  useProfile,
-  useVisibleProfiles,
-  useProxyMap,
-} from "../../entities/profile";
-import {
-  ProfileInlineEditor,
-  FromTemplateButton,
-  NewProfileButton,
-} from "../../features/manage-profiles";
+import { useProfile, useProxyMap, useVisibleProfiles } from "../../entities/profile";
+import { ProfileFilters } from "./ProfileFilters";
 import { ProfileRow } from "./ProfileRow";
 
-const PAGE_SIZE = 20;
+// Rows render in steps of this many; each one subscribes to the store, so thousands at once would stall.
+const PAGE = 200;
 
 export function ProfileTable() {
   const t = useT();
+  const rows = useVisibleProfiles();
+  const proxyMap = useProxyMap();
+  const total = useProfile((s) => s.profiles.length);
   const selected = useProfile((s) => s.selected);
   const selectProfiles = useProfile((s) => s.selectProfiles);
-  const expanded = useProfile((s) => s.expanded);
+  const newProfile = useProfile((s) => s.newProfile);
+  const running = useProfile((s) => s.running);
   const folder = useProfile((s) => s.folder);
   const search = useProfile((s) => s.search);
-  const running = useProfile((s) => s.running);
+  const filters = useProfile((s) => s.filters);
+  const [shown, setShown] = useState(PAGE);
 
-  const visible = useVisibleProfiles();
-  const proxyMap = useProxyMap();
-  const ctx = useContextMenu();
+  // Back to the first page whenever the list is narrowed or widened.
+  useEffect(() => { setShown(PAGE); }, [folder, search, filters]);
 
-  // Pagination of the (filtered) profile list.
-  const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  // Reset to page 1 when the filter changes; clamp if the list shrank.
-  useEffect(() => { setPage(1); }, [folder, search]);
-  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [pageCount, page]);
-  const paged = useMemo(
-    () => visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [visible, page],
-  );
-
-  // Re-render every second so the uptime label ticks without re-fetching the
-  // process list (which polls every 2s in the store).
-  const [, setUptimeTick] = useState(0);
+  // Re-render every second while something runs, so the uptime labels tick without refetching.
+  const [, setTick] = useState(0);
+  const anyRunning = Object.keys(running).length > 0;
   useEffect(() => {
-    if (Object.keys(running).length === 0) return;
-    const h = setInterval(() => setUptimeTick((t) => t + 1), 1000);
+    if (!anyRunning) return;
+    const h = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(h);
-  }, [running]);
+  }, [anyRunning]);
 
-  // Scroll the expanded editor into view after the expand animation.
-  useEffect(() => {
-    if (!expanded || expanded === "__new__") return;
-    const t = setTimeout(() => {
-      const el = document.querySelector<HTMLElement>(".row-wrap.row-expanded .inline-editor");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 60);
-    return () => clearTimeout(t);
-  }, [expanded]);
-
-  const allPageSelected = paged.length > 0 && paged.every((p) => selected.has(p.id));
-  const anyPageSelected = paged.some((p) => selected.has(p.id));
+  const everyChecked = rows.length > 0 && rows.every((p) => selected.has(p.id));
+  const someChecked = rows.some((p) => selected.has(p.id));
 
   return (
-    <>
-      <div className="overflow-hidden rounded-lg bg-bg-white-0 shadow-[var(--shadow-xs)] ring-1 ring-inset ring-stroke-soft-200">
-        <div className="t-cols border-b border-stroke-soft-200 bg-bg-weak-50 text-subheading-2xs text-text-soft-400">
-          <div></div>
-          <div>
-            <Checkbox
-              title={t("profileTable.selectAllOnPage")}
-              // Header checkbox toggles only visible page rows; other pages preserved.
-              checked={allPageSelected}
-              indeterminate={anyPageSelected && !allPageSelected}
-              onChange={(e) => selectProfiles(e.target.checked, paged)}
-            />
-          </div>
-          <div>{t("profileTable.colName")}</div>
-          <div>{t("profileTable.colStatus")}</div>
-          <div>{t("profileTable.colProxy")}</div>
-          <div>{t("profileTable.colNotes")}</div>
-          <div>{t("profileTable.colTime")}</div>
-          <div>{t("profileTable.colLastRun")}</div>
-          <div></div>
-        </div>
-        {expanded === "__new__" && (
-          <div className="row-expanded row-new relative border-t border-stroke-soft-200 first:border-t-0">
-            <ProfileInlineEditor />
-          </div>
-        )}
-        {paged.map((p) => (
-          <ProfileRow
-            key={p.id}
-            profile={p}
-            proxy={p.proxy_id ? proxyMap[p.proxy_id] ?? null : null}
-            onMenu={ctx.open}
-          />
-        ))}
-        {visible.length === 0 && !expanded && (
-          <div className="flex flex-col items-center gap-2.5 px-6 py-14 text-center">
-            <div className="grid size-14 place-items-center rounded-[14px] bg-primary-alpha-10 text-primary-base ring-1 ring-inset ring-primary-alpha-24">
-              <ShardLogo />
-            </div>
-            <h3 className="m-0 text-label-sm text-text-strong-950">{t("profileTable.emptyTitle")}</h3>
-            <p className="m-0 max-w-[420px] text-paragraph-sm text-text-sub-600">
-              {t("profileTable.emptyHint")}
-            </p>
-            <div className="mt-2 flex gap-2">
-              <FromTemplateButton />
-              <NewProfileButton />
-            </div>
-          </div>
-        )}
+    <div className="card stack clip">
+      <Toolbar />
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                <input
+                  className="chk"
+                  type="checkbox"
+                  aria-label={t("profiles.selectAll")}
+                  checked={everyChecked}
+                  ref={(el) => { if (el) el.indeterminate = someChecked && !everyChecked; }}
+                  onChange={(e) => selectProfiles(e.target.checked, rows)}
+                />
+              </th>
+              <th>{t("profiles.colProfile")}</th>
+              <th>{t("profiles.colStatus")}</th>
+              <th>{t("profiles.colProxy")}</th>
+              <th>{t("profiles.colLastRun")}</th>
+              <th><span className="sr-only">{t("profiles.colActions")}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, shown).map((p) => (
+              <ProfileRow key={p.id} profile={p} proxy={p.proxy_id ? proxyMap[p.proxy_id] ?? null : null} />
+            ))}
+            {rows.length > shown && (
+              <tr className="empty-row">
+                <td colSpan={6}>
+                  <button type="button" className="btn btn-text btn-sm" onClick={() => setShown((n) => n + PAGE)}>
+                    {t("profiles.showMore", { n: Math.min(PAGE, rows.length - shown) })}
+                  </button>
+                </td>
+              </tr>
+            )}
+            {rows.length === 0 && (
+              <tr className="empty-row">
+                <td colSpan={6}>
+                  {total === 0 ? (
+                    <>
+                      {t("profiles.emptyNone")}{" "}
+                      <button type="button" className="btn btn-text btn-sm" onClick={newProfile}>
+                        <Icon name="plus" size={18} />{t("profiles.newProfile")}
+                      </button>
+                    </>
+                  ) : t("profiles.emptyFiltered")}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-      {pageCount > 1 && (
-        <div className="flex items-center justify-center py-3 pb-1">
-          <Pagination
-            page={page}
-            totalPages={pageCount}
-            asLinks={false}
-            onPageChange={setPage}
-            infoLabel={(p, total) => t("profileTable.pageInfo", { page: p, total, count: visible.length })}
-          />
-        </div>
-      )}
-      {ctx.node}
-    </>
+    </div>
+  );
+}
+
+function Toolbar() {
+  const t = useT();
+  const profiles = useProfile((s) => s.profiles);
+  const running = useProfile((s) => s.running);
+  const search = useProfile((s) => s.search);
+  const setSearch = useProfile((s) => s.setSearch);
+  const status = useProfile((s) => s.filters.status);
+  const setFilters = useProfile((s) => s.setFilters);
+
+  const runningCount = profiles.filter((p) => running[p.id]).length;
+  const options: ChipOption<"all" | "running" | "idle">[] = [
+    { value: "all", label: t("profiles.statusAll"), count: profiles.length },
+    { value: "running", label: t("profileRow.statusRunning"), count: runningCount },
+    { value: "idle", label: t("profileRow.statusIdle"), count: profiles.length - runningCount },
+  ];
+
+  return (
+    <div className="toolbar">
+      <Chips name="profile-status" label={t("profiles.filterStatus")} value={status} options={options} onChange={(v) => setFilters({ status: v })} />
+      <span className="grow" />
+      <ProfileFilters />
+      <label className="search">
+        <Icon name="search" size={18} />
+        <span className="sr-only">{t("profiles.searchLabel")}</span>
+        <input type="search" placeholder={t("profiles.searchPlaceholder")} autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </label>
+    </div>
   );
 }

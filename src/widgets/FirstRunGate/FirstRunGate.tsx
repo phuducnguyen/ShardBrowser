@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Alert, ProgressBar } from "@proxyshard/shardx-ui-kit";
 import { useT } from "../../shared/i18n";
 import type { RtStatus, RtProgress } from "../../shared/types";
 
@@ -88,35 +87,29 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="fixed inset-0 z-1000 flex items-center justify-center bg-bg-weak-50 text-text-strong-950">
-      <div className="w-[460px] px-9 py-8 text-center">
-        <div className="mb-2 text-title-h6">{t("firstRunGate.title")}</div>
-        <div className="mb-6 text-paragraph-xs text-text-soft-400">
-          {t("firstRunGate.downloadNote", {
-            size: prog?.total ? fmt(prog.total) : "150 MB",
-          })}
-        </div>
+    <div className="hv" style={{ display: "contents" }}>
+      <main className="splash">
+        <div className="splash-card">
+          <h1>{t("firstRunGate.title")}</h1>
+          <p>{t("firstRunGate.downloadNote", { size: prog?.total ? fmt(prog.total) : "150 MB" })}</p>
 
-        {prog && (
-          <>
-            <div className="mb-1.5 text-left text-paragraph-xs text-text-soft-400">
-              {prog.label} —{" "}
-              {prog.phase === "download"
-                ? `${fmt(prog.received)} / ${fmt(prog.total)}  (${prog.percent}%)`
-                : t("firstRunGate.extracting")}
+          {prog && (
+            <div className="progress-box">
+              <div className="row">
+                <span className="ellip-line">{prog.label}</span>
+                <span>
+                  {prog.phase === "download"
+                    ? `${fmt(prog.received)} / ${fmt(prog.total)}  (${prog.percent}%)`
+                    : t("firstRunGate.extracting")}
+                </span>
+              </div>
+              <progress className="bar" max={100} value={prog.percent} aria-label={prog.label} />
             </div>
-            <ProgressBar value={prog.percent} color="primary" />
-          </>
-        )}
-        {!prog && !err && (
-          <div className="text-paragraph-xs text-text-soft-400">{t("firstRunGate.contactingCdn")}</div>
-        )}
-        {err && (
-          <Alert status="error" variant="light" className="mt-3 text-left">
-            {err}
-          </Alert>
-        )}
-      </div>
+          )}
+          {!prog && !err && <p>{t("firstRunGate.contactingCdn")}</p>}
+          {err && <div className="callout-err" role="alert">{err}</div>}
+        </div>
+      </main>
     </div>
   );
 }

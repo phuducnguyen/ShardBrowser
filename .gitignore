@@ -5,3 +5,7 @@ dist/
 ui-kit/dist/
 ui-kit/node_modules/
 /src-tauri/target
+.vibecode-backup*/
+
+# Third-party UI reference screenshots (not ours to redistribute)
+.reference/

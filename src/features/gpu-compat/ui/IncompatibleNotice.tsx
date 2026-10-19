@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Modal, Button } from "@proxyshard/shardx-ui-kit";
-import Badge from "../../../shared/ui/Badge";
+import { FormDialog } from "../../../shared/ui/hv";
 import { useGpuCompat } from "../../../shared/model/gpuCompat";
 import { useT } from "../../../shared/i18n";
 import type { GpuCompat } from "../../../entities/fingerprint/model/types";
@@ -15,69 +14,57 @@ export function IncompatibleExplainer({ compat }: { compat: GpuCompat }) {
   const unique = Array.from(new Set(missing));
   const gpuMissing = Array.from(new Set(compat.missing_webgpu ?? []));
   return (
-    <div className="flex flex-col gap-3 text-paragraph-sm text-text-sub-600">
-      <p className="m-0">
+    <div className="explain">
+      <p>
         {t("incompatibleNotice.claimsIntro")}
         {missing.length > 0 ? t("incompatibleNotice.webglExtensionsPart") : ""}
         {missing.length > 0 && gpuMissing.length > 0 ? t("incompatibleNotice.andPart") : ""}
         {gpuMissing.length > 0 ? t("incompatibleNotice.webgpuFeaturesPart") : ""}
         {" "}{t("incompatibleNotice.claimsOutro")}
       </p>
-      <div className="rounded-lg bg-bg-weak-50 p-3 text-paragraph-xs">
+      <div className="box">
         <div>
-          <span className="text-text-soft-400">{t("incompatibleNotice.profileClaims")}</span>{" "}
-          <span className="text-text-strong-950">{compat.profile_renderer || "—"}</span>
+          <span className="soft">{t("incompatibleNotice.profileClaims")}</span>{" "}
+          <strong>{compat.profile_renderer || "—"}</strong>
         </div>
         <div>
-          <span className="text-text-soft-400">{t("incompatibleNotice.thisMachineHas")}</span>{" "}
-          <span className="text-text-strong-950">{caps?.renderer || t("incompatibleNotice.unknownRenderer")}</span>
+          <span className="soft">{t("incompatibleNotice.thisMachineHas")}</span>{" "}
+          <strong>{caps?.renderer || t("incompatibleNotice.unknownRenderer")}</strong>
         </div>
       </div>
-      <p className="m-0">
-        {t("incompatibleNotice.reportsListNote")}
-      </p>
-      <pre className="m-0 overflow-x-auto rounded-lg bg-bg-weak-50 p-3 text-paragraph-xs">
+      <p>{t("incompatibleNotice.reportsListNote")}</p>
+      <pre className="box">
 {`gl.getSupportedExtensions()
   -> [ ..., "${unique[0] ?? "WEBGL_compressed_texture_astc"}", ... ]
 
 gl.getExtension("${unique[0] ?? "WEBGL_compressed_texture_astc"}")
   -> null`}
       </pre>
-      <p className="m-0">
-        {t("incompatibleNotice.contradictionNote")}
-      </p>
+      <p>{t("incompatibleNotice.contradictionNote")}</p>
       <div>
-        <div className="mb-1 text-paragraph-xs text-text-soft-400">
+        <div className="soft small">
           {unique.length === 1
             ? t("incompatibleNotice.extensionsUnbackedOne", { n: unique.length })
             : t("incompatibleNotice.extensionsUnbackedMany", { n: unique.length })}
         </div>
-        <div className="max-h-32 overflow-y-auto rounded-lg bg-bg-weak-50 p-3 font-mono text-paragraph-xs text-text-strong-950">
-          {unique.map((e) => (
-            <div key={e}>{e}</div>
-          ))}
+        <div className="box list">
+          {unique.map((e) => <div key={e}>{e}</div>)}
         </div>
       </div>
       {gpuMissing.length > 0 && (
         <div>
-          <div className="mb-1 text-paragraph-xs text-text-soft-400">
+          <div className="soft small">
             {gpuMissing.length === 1
               ? t("incompatibleNotice.webgpuUnbackedOne", { n: gpuMissing.length })
               : t("incompatibleNotice.webgpuUnbackedMany", { n: gpuMissing.length })}
           </div>
-          <div className="max-h-32 overflow-y-auto rounded-lg bg-bg-weak-50 p-3 font-mono text-paragraph-xs text-text-strong-950">
-            {gpuMissing.map((f) => (
-              <div key={f}>{f}</div>
-            ))}
+          <div className="box list">
+            {gpuMissing.map((f) => <div key={f}>{f}</div>)}
           </div>
-          <p className="m-0 mt-1.5 text-paragraph-xs text-text-soft-400">
-            {t("incompatibleNotice.webgpuNote")}
-          </p>
+          <p className="soft small">{t("incompatibleNotice.webgpuNote")}</p>
         </div>
       )}
-      <p className="m-0 text-text-soft-400">
-        {t("incompatibleNotice.advice")}
-      </p>
+      <p className="soft">{t("incompatibleNotice.advice")}</p>
     </div>
   );
 }
@@ -91,44 +78,26 @@ export function IncompatibleBadge({ compat }: { compat: GpuCompat }) {
   if (compat.compatible) return null;
   return (
     <>
-      <Badge
-        color="warning"
-        variant="lighter"
-        size="small"
-        role="button"
-        tabIndex={0}
-        className="flex-none cursor-pointer select-none"
-        title={t("incompatibleNotice.badgeTitle")}
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.stopPropagation();
-            e.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        {t("incompatibleNotice.badgeLabel")}
-      </Badge>
+      {/* The badge may sit in a `.hv` page or a legacy one, so it carries its own root. */}
+      <span className="hv" style={{ display: "contents" }}>
+        <button
+          type="button"
+          className="chip-warn chip-btn"
+          title={t("incompatibleNotice.badgeTitle")}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          {t("incompatibleNotice.badgeLabel")}
+        </button>
+      </span>
       {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
+        <FormDialog
+          mid
           title={t("incompatibleNotice.badgeModalTitle")}
-          maxWidthClassName="max-w-lg"
-          footer={
-            <div className="flex justify-end">
-              <Button size="small" variant="neutral" mode="stroke" onClick={() => setOpen(false)}>
-                {t("incompatibleNotice.closeButton")}
-              </Button>
-            </div>
-          }
+          cancelLabel={t("incompatibleNotice.closeButton")}
+          onClose={() => setOpen(false)}
         >
           <IncompatibleExplainer compat={compat} />
-        </Modal>
+        </FormDialog>
       )}
     </>
   );
@@ -155,34 +124,23 @@ export function IncompatibleWarningModal({
     onKeep();
   };
   return (
-    <Modal
-      open
-      onClose={onCancel}
+    <FormDialog
+      mid
+      danger
       title={t("incompatibleNotice.warningModalTitle")}
-      maxWidthClassName="max-w-lg"
-      footer={
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-paragraph-xs text-text-soft-400">
-            <input
-              type="checkbox"
-              className="flex-none"
-              checked={dontWarn}
-              onChange={(e) => setDontWarn(e.target.checked)}
-            />
-            <span className="min-w-0">{t("incompatibleNotice.dontWarnAgain")}</span>
-          </label>
-          <div className="flex flex-none gap-2">
-            <Button size="small" variant="neutral" mode="stroke" onClick={onCancel}>
-              {t("incompatibleNotice.pickAnother")}
-            </Button>
-            <Button size="small" variant="error" mode="filled" onClick={keep}>
-              {t("incompatibleNotice.useAnyway")}
-            </Button>
-          </div>
-        </div>
+      confirmLabel={t("incompatibleNotice.useAnyway")}
+      cancelLabel={t("incompatibleNotice.pickAnother")}
+      initialFocus=".actions .btn-text"
+      onClose={onCancel}
+      onConfirm={keep}
+      extra={
+        <label className="check-line">
+          <input type="checkbox" className="chk" checked={dontWarn} onChange={(e) => setDontWarn(e.target.checked)} />
+          <span>{t("incompatibleNotice.dontWarnAgain")}</span>
+        </label>
       }
     >
       <IncompatibleExplainer compat={compat} />
-    </Modal>
+    </FormDialog>
   );
 }

@@ -84,6 +84,11 @@ pub fn settings_path() -> Result<PathBuf> {
     Ok(config_root()?.join("settings.json"))
 }
 
+/// What a new profile starts from. Its own file: the settings form rewrites `settings.json` whole.
+pub fn profile_defaults_path() -> Result<PathBuf> {
+    Ok(config_root()?.join("profile-defaults.json"))
+}
+
 /// Folder-scoped bookmarks, merged into each profile's Bookmarks on launch.
 pub fn bookmarks_path() -> Result<PathBuf> {
     Ok(config_root()?.join("bookmarks.json"))

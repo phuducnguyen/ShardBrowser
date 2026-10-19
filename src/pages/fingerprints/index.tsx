@@ -1,9 +1,11 @@
-import { useEffect } from "react";
-import { Topbar } from "../../shared/ui/Topbar";
-import { useFingerprint } from "../../entities/fingerprint";
-import { FingerprintImporter } from "../../features/manage-fingerprints";
+import { useEffect, useState } from "react";
+import { Window } from "../../shared/ui/hv";
+import { useFingerprint, useFingerprintGroups } from "../../entities/fingerprint";
+import {
+  FingerprintImporter, ImportFromFileButton, LibraryFolderButton, PasteJsonButton,
+} from "../../features/manage-fingerprints";
 import { FingerprintLibrary } from "../../widgets/FingerprintLibrary/FingerprintLibrary";
-import { FingerprintToolbar } from "../../widgets/FingerprintLibrary/FingerprintToolbar";
+import { PlatformPanel } from "../../widgets/FingerprintLibrary/PlatformPanel";
 import { useT } from "../../shared/i18n";
 
 export function FingerprintsPage() {
@@ -12,23 +14,31 @@ export function FingerprintsPage() {
   const reload = useFingerprint((s) => s.reload);
   const importerOpen = useFingerprint((s) => s.importerOpen);
   const setImporterOpen = useFingerprint((s) => s.setImporterOpen);
+  const groups = useFingerprintGroups();
+  const [picked, setPicked] = useState("all");
+  // A removed fingerprint can empty its platform; fall back to the full list rather than show nothing.
+  const platform = picked === "all" || groups.some(([name]) => name === picked) ? picked : "all";
 
   useEffect(() => { init(); }, [init]);
 
   return (
-    <section className="flex flex-col">
-      <Topbar crumbs={[t("fingerprints.crumbLibrary"), t("fingerprints.crumbFingerprints")]} search="" onSearch={() => {}} />
-      <div className="mb-3.5 flex items-end justify-between gap-4">
-        <h1 className="m-0 text-title-h5 text-text-strong-950">{t("fingerprints.title")}</h1>
-        <FingerprintToolbar />
-      </div>
-      <p className="m-0 mb-3.5 text-paragraph-xs text-text-soft-400">
-        {t("fingerprints.introPart1")}<strong>{t("fingerprints.gpuWord")}</strong>{t("fingerprints.introPart2")}
-      </p>
-      <FingerprintLibrary />
+    <>
+      <Window
+        title={t("fingerprints.title")}
+        actions={
+          <>
+            <LibraryFolderButton />
+            <ImportFromFileButton />
+            <PasteJsonButton />
+          </>
+        }
+      >
+        <PlatformPanel active={platform} onPick={setPicked} />
+        <FingerprintLibrary platform={platform} />
+      </Window>
       {importerOpen && (
         <FingerprintImporter onClose={() => { setImporterOpen(false); reload(); }} />
       )}
-    </section>
+    </>
   );
 }

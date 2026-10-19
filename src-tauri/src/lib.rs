@@ -12,6 +12,7 @@ mod mcp_setup;
 mod migrate;
 mod process;
 mod profile;
+mod profile_defaults;
 mod proxy;
 mod psapi;
 mod runtime;
@@ -879,7 +880,7 @@ async fn automation_fleet_window(app: tauri::AppHandle) {
         return;
     }
     let built = WebviewWindowBuilder::new(&app, "fleet", WebviewUrl::App("index.html#/?fleet=1".into()))
-        .title("ShardX Fleet")
+        .title("HeroV Fleet")
         .inner_size(460.0, 420.0)
         .min_inner_size(360.0, 240.0)
         .always_on_top(true)
@@ -1463,7 +1464,7 @@ fn open_sync_panel(app: &tauri::AppHandle, group: &str) {
     }
     let url = format!("index.html#/?syncPanel={group}");
     let built = WebviewWindowBuilder::new(app, "sync-panel", WebviewUrl::App(url.into()))
-        .title("ShardX Sync")
+        .title("HeroV Sync")
         .inner_size(360.0, 168.0)
         .resizable(true)
         .min_inner_size(280.0, 120.0)
@@ -1776,6 +1777,17 @@ fn host_screen(window: tauri::WebviewWindow) -> Option<(i64, i64)> {
     let w = (phys.width as f64 / scale).round() as i64;
     let h = (phys.height as f64 / scale).round() as i64;
     (w > 0 && h > 0).then_some((w, h))
+}
+
+/// What a new profile starts from (Profile defaults page). None until the operator saves them once.
+#[tauri::command]
+fn profile_defaults_get() -> Result<Option<Value>, String> {
+    profile_defaults::load().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn profile_defaults_set(value: Value) -> Result<(), String> {
+    profile_defaults::save(&value).map_err(|e| e.to_string())
 }
 
 /// Why the settings file could not be read, for the banner. None = it reads fine.
@@ -2215,6 +2227,8 @@ pub fn run() {
             settings_get,
             settings_save,
             settings_load_error,
+            profile_defaults_get,
+            profile_defaults_set,
             host_screen,
             api_info,
             api_regenerate_token,
@@ -2263,7 +2277,7 @@ pub fn run() {
                     #[cfg(target_os = "macos")]
                     let builder = builder.icon_as_template(true);
                     builder
-                        .tooltip("ShardX Launcher")
+                        .tooltip("HeroV Browser")
                         .menu(&menu)
                         .show_menu_on_left_click(false)
                         .on_menu_event(|app, e| match e.id.as_ref() {

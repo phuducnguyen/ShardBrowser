@@ -8,18 +8,28 @@ import { confirmModal } from '../../../shared/lib/confirm';
 import { storeBus } from '../../../shared/lib/storeBus';
 import { t } from '../../../shared/i18n';
 import { ProfileMeta } from '../../profile/model/types';
+import { proxyStatus } from './status';
 
 export type ProxyInfoTarget = { proxy: ProxyEntry; anchor: { x: number; y: number } };
+
+export type KindFilter = "all" | ProxyEntry["kind"];
+export type StatusFilter = "all" | "alive" | "dead" | "new";
+/// Tabs of the "Get proxies" sheet.
+export type GetProxiesTab = "proxyshard" | "import" | "manual";
 
 /// Shared by the table and by shift-click, so a range covers what is visible.
 export function filterProxies(
     proxies: ProxyEntry[],
     snapshots: Record<string, ProxyTestSnapshot>,
     search: string,
+    kind: KindFilter = "all",
+    status: StatusFilter = "all",
 ): ProxyEntry[] {
     const q = search.trim().toLowerCase();
-    if (!q) return proxies;
     return proxies.filter((p) => {
+        if (kind !== "all" && p.kind !== kind) return false;
+        if (status !== "all" && proxyStatus(snapshots[p.id], false) !== status) return false;
+        if (!q) return true;
         const snap = snapshots[p.id];
         return (
             p.name.toLowerCase().includes(q) ||
@@ -29,6 +39,7 @@ export function filterProxies(
             p.notes.toLowerCase().includes(q) ||
             p.username.toLowerCase().includes(q) ||
             (snap?.ip ?? '').toLowerCase().includes(q) ||
+            (snap?.country ?? '').toLowerCase().includes(q) ||
             (snap?.city ?? '').toLowerCase().includes(q) ||
             (snap?.isp ?? '').toLowerCase().includes(q)
         );
@@ -48,9 +59,13 @@ export type ProxyStore = {
 
     // UI state lives in the store so feature buttons stay prop-free.
     editing: ProxyEntry | null,
-    bulkOpen: boolean,
+    /// The "Get proxies" sheet and the tab it opens on.
+    sheetOpen: boolean,
+    sheetTab: GetProxiesTab,
     infoFor: ProxyInfoTarget | null,
     search: string,
+    kindFilter: KindFilter,
+    statusFilter: StatusFilter,
     /// The bulk "spread these across profiles" dialog.
     distributeOpen: boolean,
     /// Row the last plain click landed on; a shift-click selects the run from it.
@@ -67,7 +82,11 @@ export type ProxyStore = {
     clearSelected: () => void,
 
     setEditing: (p: ProxyEntry | null) => void,
-    setBulkOpen: (open: boolean) => void,
+    openSheet: (tab?: GetProxiesTab) => void,
+    closeSheet: () => void,
+    setSheetTab: (tab: GetProxiesTab) => void,
+    setKindFilter: (kind: KindFilter) => void,
+    setStatusFilter: (status: StatusFilter) => void,
     setInfoFor: (target: ProxyInfoTarget | null) => void,
     setSearch: (q: string) => void,
     setDistributeOpen: (open: boolean) => void,
@@ -90,9 +109,12 @@ export const useProxy = create<ProxyStore>((set, get) => ({
     proxySel: new Set<string>(),
     profiles: new Array<ProfileMeta>(),
     editing: null,
-    bulkOpen: false,
+    sheetOpen: false,
+    sheetTab: 'proxyshard',
     infoFor: null,
     search: '',
+    kindFilter: 'all',
+    statusFilter: 'all',
     distributeOpen: false,
     anchorId: null,
     testProxy: async (p: ProxyEntry) => {
@@ -163,7 +185,8 @@ export const useProxy = create<ProxyStore>((set, get) => ({
     // Runs over the list as the table orders it. The row you click decides the
     // direction: a ticked one unticks the run, an unticked one ticks it.
     selectRangeTo: (id: string) => {
-        const order = filterProxies(get().proxies, get().snapshots, get().search).map((p) => p.id);
+        const { proxies, snapshots, search, kindFilter, statusFilter } = get();
+        const order = filterProxies(proxies, snapshots, search, kindFilter, statusFilter).map((p) => p.id);
         const to = order.indexOf(id);
         if (to < 0) return;
         const anchor = get().anchorId;
@@ -185,7 +208,11 @@ export const useProxy = create<ProxyStore>((set, get) => ({
     clearSelected: () => set({ proxySel: new Set<string>(), anchorId: null }),
 
     setEditing: (editing) => set({ editing }),
-    setBulkOpen: (bulkOpen) => set({ bulkOpen }),
+    openSheet: (tab) => set((s) => ({ sheetOpen: true, sheetTab: tab ?? s.sheetTab })),
+    closeSheet: () => set({ sheetOpen: false }),
+    setSheetTab: (sheetTab) => set({ sheetTab }),
+    setKindFilter: (kindFilter) => set({ kindFilter }),
+    setStatusFilter: (statusFilter) => set({ statusFilter }),
     setInfoFor: (infoFor) => set({ infoFor }),
     setSearch: (search) => set({ search }),
     setDistributeOpen: (distributeOpen) => set({ distributeOpen }),
@@ -202,7 +229,9 @@ export const useProxy = create<ProxyStore>((set, get) => ({
         } catch (e) { toast.err(String(e)); }
     },
     removeProxy: async (id) => {
-        if ((await confirmModal({ title: t("useProxy.deleteTitle"), message: t("useProxy.deleteMessage"), danger: true })) !== true) return;
+        const bound = get().profiles.filter((p) => p.proxy_id === id).length;
+        const message = bound ? `${t("useProxy.deleteMessage")} ${t("useProxy.deleteUsedNote", { n: bound })}` : t("useProxy.deleteMessage");
+        if ((await confirmModal({ title: t("useProxy.deleteTitle"), message, danger: true })) !== true) return;
         try { await proxyDelete(id); get().reload(); storeBus.emit('proxies'); toast.ok(t("useProxy.deleted")); }
         catch (e) { toast.err(String(e)); }
     },
@@ -230,7 +259,10 @@ export const useProxy = create<ProxyStore>((set, get) => ({
         const { proxySel } = get();
         const ids = [...proxySel];
         if (ids.length === 0) return;
-        if ((await confirmModal({ title: t("useProxy.bulkDeleteTitle"), message: ids.length === 1 ? t("useProxy.bulkDeleteOneMessage", { n: ids.length }) : t("useProxy.bulkDeleteManyMessage", { n: ids.length }), danger: true })) !== true) return;
+        const bound = get().profiles.filter((p) => p.proxy_id && proxySel.has(p.proxy_id)).length;
+        const base = ids.length === 1 ? t("useProxy.bulkDeleteOneMessage", { n: ids.length }) : t("useProxy.bulkDeleteManyMessage", { n: ids.length });
+        const message = bound ? `${base} ${t("useProxy.deleteUsedNote", { n: bound })}` : base;
+        if ((await confirmModal({ title: t("useProxy.bulkDeleteTitle"), message, danger: true })) !== true) return;
         for (const id of ids) {
             try { await proxyDelete(id); } catch (e) { toast.err(String(e)); }
         }

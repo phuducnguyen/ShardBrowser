@@ -3,10 +3,12 @@
 //
 // The allow-list at the bottom is for text that is the same in every language:
 // product names, protocol names, the endonyms in the language picker.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+// fileURLToPath, not .pathname: on Windows the latter is "/C:/…" and breaks every join below.
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
 const LOCALES = join(SRC, "shared/i18n/locales");
 
@@ -20,11 +22,11 @@ const TEXT_PROPS = new Set([
 // Same in every language: product and protocol names, OS names, the language
 // picker's own entries, and samples of code or headers.
 const KEEP = new Set([
-  "ShardX", "ShardX Launcher", "ProxyShard", "Shard Helper", "MCP", "GPU", "CPU",
+  "ShardX", "ShardX Launcher", "HeroV Browser", "HeroV", "ProxyShard", "Shard Helper", "MCP", "GPU", "CPU",
   "URL", "SQL", "UDP", "TCP", "HTTP", "HTTPS", "SOCKS5", "Canvas", "WebGL",
   "WebGPU", "WebRTC", "TLS", "CDP", "API", "JSON", "Cookie", "User-Agent",
   "macOS", "MacOS", "Windows", "Windows 10", "Windows 11", "Linux", "Android",
-  "iOS", "IOS", "X", "Y", "ISP", "Do Not Track",
+  "iOS", "IOS", "X", "Y", "IP", "ISP", "Do Not Track",
   "Authorization: Bearer …", "Content-Type: application/json",
   "BlockedByClient / AccessDenied / …", "· UDP ✓", "· UDP ✗",
 ]);
@@ -43,7 +45,9 @@ const files = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) { if (name !== "i18n") walk(p); }
-    else if (name.endsWith(".tsx") || name.endsWith(".ts")) files.push(p);
+    // hv/Icon.tsx is a table of SVG shapes; its `name: <path …/>` lines read like prose to the matcher below.
+    // Tests carry fixtures (`title: "Ads manager"`) that are data, not interface text.
+    else if ((name.endsWith(".tsx") || name.endsWith(".ts")) && !/\.test\.tsx?$/.test(name) && p !== join(SRC, "shared/ui/hv/Icon.tsx")) files.push(p);
   }
 })(SRC);
 
@@ -88,6 +92,10 @@ for (const file of files) {
 
 const en = JSON.parse(readFileSync(join(LOCALES, "en.json"), "utf8"));
 const zh = JSON.parse(readFileSync(join(LOCALES, "zh.json"), "utf8"));
+// vi is allowed to lag behind (missing keys fall back to English at run time); it must not hold keys that en lacks.
+const viPath = join(LOCALES, "vi.json");
+const vi = existsSync(viPath) ? JSON.parse(readFileSync(viPath, "utf8")) : {};
+const orphanVi = Object.keys(vi).filter((k) => !(k in en)).sort();
 const missingEn = [...called].filter((k) => !(k in en)).sort();
 const missingZh = Object.keys(en).filter((k) => !(k in zh)).sort();
 const unused = Object.keys(en).filter((k) => !called.has(k)).sort();
@@ -97,6 +105,9 @@ if (missingEn.length) console.log(`\nkeys called but not in en.json:\n  ${missin
 if (missingZh.length) console.log(`\nkeys in en.json but not in zh.json:\n  ${missingZh.join("\n  ")}`);
 if (unused.length) console.log(`\nkeys in en.json that nothing calls:\n  ${unused.join("\n  ")}`);
 
-const bad = problems.length + missingEn.length + missingZh.length + unused.length;
-console.log(bad ? `\n${bad} problem(s)` : `i18n OK — ${Object.keys(en).length} keys, all called, all translated`);
+if (orphanVi.length) console.log(`\nkeys in vi.json that en.json does not have:\n  ${orphanVi.join("\n  ")}`);
+
+const bad = problems.length + missingEn.length + missingZh.length + unused.length + orphanVi.length;
+const viCovered = Object.keys(en).filter((k) => k in vi).length;
+console.log(bad ? `\n${bad} problem(s)` : `i18n OK — ${Object.keys(en).length} keys, all called, en+zh complete, vi ${viCovered}/${Object.keys(en).length}`);
 process.exit(bad ? 1 : 0);
