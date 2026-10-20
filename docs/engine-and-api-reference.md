@@ -1,8 +1,10 @@
+> **Reference, inherited from ShardX Launcher.** This is the original README of the project HeroV Browser is built on (ShardX Launcher by the ProxyShard team, MIT). It documents the browser engine, the local API, the MCP server and the SDKs, which HeroV keeps. Statements about the engine, test results and the comparison table are the original authors' and have not been re-verified by HeroV; the HeroV README is [../README.md](../README.md).
+
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/shardx-logo-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/shardx-logo-light.png">
-    <img src="docs/screenshots/shardx-logo-light.png" alt="ShardX" width="460">
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/shardx-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/shardx-logo-light.png">
+    <img src="screenshots/shardx-logo-light.png" alt="ShardX" width="460">
   </picture>
 </p>
 
@@ -80,9 +82,9 @@ Configuration details are available in [Usage](#usage).
 <p align="center">
   <kbd>
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/00-launcher-dark.png">
-      <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/00-launcher-light.png">
-      <img src="docs/screenshots/00-launcher-light.png" alt="ShardX Launcher with active browser profiles" width="920">
+      <source media="(prefers-color-scheme: dark)" srcset="screenshots/00-launcher-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="screenshots/00-launcher-light.png">
+      <img src="screenshots/00-launcher-light.png" alt="ShardX Launcher with active browser profiles" width="920">
     </picture>
   </kbd>
 </p>
@@ -261,7 +263,7 @@ iframes, web workers, developer tools and headless mode.
 * **Local automation API:** axum HTTP server on `127.0.0.1`,
   Bearer JWT authentication. Full reference at
   [docs.proxyshard.com/eng/shardx-launcher-api](https://docs.proxyshard.com/eng/shardx-launcher-api/binding-and-lifecycle?fallback=true&utm_source=shardx&utm_medium=referral&utm_campaign=shardx-launcher),
-  raw schema in [openapi.yaml](openapi.yaml). Create / start / stop
+  raw schema in [openapi.yaml](../openapi.yaml). Create / start / stop
   profiles and get a CDP WebSocket URL programmatically.
 * **MCP server bundled:** connect ShardX to Claude Desktop, Cursor and
   other MCP clients for natural-language profile orchestration. Automation
@@ -316,7 +318,7 @@ Twilio's UDP, TCP and TLS WebRTC tests pass without exposing the host IP.
 
 | [browserleaks.com/quic](https://browserleaks.com/quic): QUIC `True`, JA4 matches Chrome 152 | [networktest.twilio.com](https://networktest.twilio.com): every probe `Pass` |
 |-------------------------------------------------------------|------------------------------------------------------------|
-| <kbd><img src="docs/screenshots/01-browserleaks-quic.jpg" alt="QUIC over SOCKS5 UDP relay" width="100%"></kbd> | <kbd><img src="docs/screenshots/04-twilio-webrtc.jpg" alt="Twilio WebRTC network test" width="100%"></kbd> |
+| <kbd><img src="screenshots/01-browserleaks-quic.jpg" alt="QUIC over SOCKS5 UDP relay" width="100%"></kbd> | <kbd><img src="screenshots/04-twilio-webrtc.jpg" alt="Twilio WebRTC network test" width="100%"></kbd> |
 
 ### Bot / automation detection
 
@@ -326,7 +328,7 @@ Twilio's UDP, TCP and TLS WebRTC tests pass without exposing the host IP.
 </p>
 
 <p align="center">
-  <kbd><img src="docs/screenshots/03-fingerprint-com.jpg" alt="Fingerprint.com bot detection result" width="880"></kbd>
+  <kbd><img src="screenshots/03-fingerprint-com.jpg" alt="Fingerprint.com bot detection result" width="880"></kbd>
 </p>
 
 <p align="center">
@@ -337,13 +339,13 @@ Twilio's UDP, TCP and TLS WebRTC tests pass without exposing the host IP.
 
 | **ProxyShard browser checker:** no issues across 9 categories | [pixelscan.net](https://pixelscan.net): Fingerprint **consistent** |
 |-------------------------------------------------------------------|---------------------------------------------------------|
-| <kbd><img src="docs/screenshots/02-proxyshard-checker.jpg" alt="ProxyShard browser checker" width="100%"></kbd> | <kbd><img src="docs/screenshots/06-pixelscan.jpg" alt="Pixelscan fingerprint consistency result" width="100%"></kbd> |
+| <kbd><img src="screenshots/02-proxyshard-checker.jpg" alt="ProxyShard browser checker" width="100%"></kbd> | <kbd><img src="screenshots/06-pixelscan.jpg" alt="Pixelscan fingerprint consistency result" width="100%"></kbd> |
 
 ### Authenticity score
 
 | [browserscan.net](https://www.browserscan.net): Authenticity 100%, locale honored | [antcpt.com](https://antcpt.com/score_detector/): reCAPTCHA v3 score **0.9** |
 |-----------------------------------------------------------|------------------------------------------------------------|
-| <kbd><img src="docs/screenshots/05-browserscan.jpg" alt="Browserscan authenticity score" width="100%"></kbd> | <kbd><img src="docs/screenshots/08-recaptcha-score.jpg" alt="reCAPTCHA v3 score" width="100%"></kbd> |
+| <kbd><img src="screenshots/05-browserscan.jpg" alt="Browserscan authenticity score" width="100%"></kbd> | <kbd><img src="screenshots/08-recaptcha-score.jpg" alt="reCAPTCHA v3 score" width="100%"></kbd> |
 
 ---
 
@@ -414,7 +416,7 @@ sessions even when the initial public checks passed:
 
 ### Option A: download a release
 
-Download the build for your OS from [GitHub Releases](../../releases),
+Download the build for your OS from [GitHub Releases](https://github.com/phuducnguyen/ShardBrowser/releases),
 then run it. Use `.dmg` for macOS, `.msi` or the portable `.exe` for
 Windows, and `.AppImage` or `.deb` for Linux.
 
@@ -513,7 +515,7 @@ Python, Go, curl or any other HTTP client. Every endpoint except
 Regenerating the token rotates the signing secret immediately.
 
 * **Reference docs:** [https://docs.proxyshard.com/eng/shardx-launcher-api/binding-and-lifecycle](https://docs.proxyshard.com/eng/shardx-launcher-api/binding-and-lifecycle?utm_source=shardx&utm_medium=referral&utm_campaign=shardx-launcher)
-* **OpenAPI schema:** [openapi.yaml](openapi.yaml)
+* **OpenAPI schema:** [openapi.yaml](../openapi.yaml)
 
 Launching a profile and getting a CDP endpoint:
 
@@ -788,7 +790,7 @@ The app does not run the server itself. Open *Settings > MCP server >
 Download MCP server*, choose a folder, run `npm install` and register
 the server with your MCP client. Setup instructions, environment
 variables and tools are listed in
-**[mcp/README.md](mcp/README.md)**.
+**[mcp/README.md](../mcp/README.md)**.
 
 Minimal stdio registration:
 
@@ -822,9 +824,9 @@ the same screen strategy and host-aware hardware randomization.
 Use an SDK when you want ShardX as a library inside a scraper, CI job or
 server-side worker without installing the GUI.
 
-* **Python:** [sdks/python/README.md](sdks/python/README.md), `pip install shardx`
-* **Node:** [sdks/node/README.md](sdks/node/README.md), `npm install @proxyshard/shardx`
-* **Rust:** [sdks/rust/README.md](sdks/rust/README.md), `cargo add shardx`
+* **Python:** [sdks/python/README.md](../sdks/python/README.md), `pip install shardx`
+* **Node:** [sdks/node/README.md](../sdks/node/README.md), `npm install @proxyshard/shardx`
+* **Rust:** [sdks/rust/README.md](../sdks/rust/README.md), `cargo add shardx`
 
 ---
 
@@ -832,7 +834,7 @@ server-side worker without installing the GUI.
 
 The desktop launcher source in this repository, including the Tauri shell,
 React UI and Rust source, is available under the **MIT License**. See
-[LICENSE](LICENSE). You may use, fork, modify and distribute the launcher,
+[LICENSE](../LICENSE). You may use, fork, modify and distribute the launcher,
 including for commercial projects.
 
 The **browser engine** (the patched Chromium 152 binary that the
