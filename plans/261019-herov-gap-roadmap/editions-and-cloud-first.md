@@ -8,7 +8,9 @@ Date 2026-10-20 · Status: **owner decisions recorded, plan proposed** · Supers
 | 1 | Release order: **Cloud first**. Goal one is a self-hosted **Community** edition; then a **Commercial** edition sold as a subscription with more features. |
 | 2 | Backend changes approved for the profile-workflow work: tags (2.1), activity log (2.6), backup/restore (2.7), `write_text_file` (2.9). One commit per change, with tests. |
 | 3 | Android focus: independent environment, fingerprint and device checks built as the engine's own core, learning from the reference projects (ideas only; no code copied from non-commercial/AGPL/unlicensed projects). |
-| 4 | Repo history: commits carry the owner as sole author, no tool attribution; conventional-commit messages. |
+| 4 | Repo history: commits carry the owner as sole author, no tool attribution; conventional-commit messages. Small, detailed commits pushed as they land. |
+| 5 | Server language: **Rust with axum** (same toolchain as the launcher; shared types possible). |
+| 6 | Community licence: **source-available with conditions**. The product keeps the HeroV name and logo; forks may not remove or replace the branding, and commercial hosting of the Commercial feature set needs a licence. Exact text to be drafted from a known template (e.g. a fair-code style licence) and reviewed by a lawyer before publishing. |
 
 ## 2. New release order
 | Version | Theme | Notes |
@@ -62,7 +64,7 @@ Acceptance: 10 distinct real-device captures clean in CreepJS; zero consistency 
 Write `docs/specs/cloud-sync.md` before code: service stack (Rust axum or Node Fastify), Postgres + S3-compatible storage, auth (argon2id, TOTP), client-side encryption with a passphrase-derived key the server never sees, revision-based sync with a conflict list, Dokploy compose, backup and restore drill. Edition gating (licence claim checked by client and server) is designed in the same spec.
 
 ## 7. Open questions
-- Server language (Rust axum vs Node Fastify).
-- Licence of the Community code (open source vs source-available); decides what may be public.
-- Seat and profile limits per edition; trial length.
+- ~~Server language~~ decided: Rust axum.
+- ~~Licence~~ decided in principle: source-available with branding conditions; text still to draft and have reviewed.
+- Seat and profile limits per edition; trial length (see section 3b once added).
 - Whether the hosted Commercial cloud runs on your VPS or a managed provider.
