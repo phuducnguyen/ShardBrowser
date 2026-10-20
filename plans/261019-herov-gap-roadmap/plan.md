@@ -42,8 +42,11 @@ Close the functional gaps that matter to MMO / social account operators and lift
 ## Progress
 - 2026-10-19: first-run splash and star prompt ported; **device-first Create profile and Settings → Profile defaults built** (Windows and Android, engine Chrome; spec `docs/specs/profile-defaults-and-create-profile.md`; 217 tests). Defaults are kept in local storage until the backend is open (item BE-1). macOS, Linux, iOS and Camoufox are planned in the spec (section 8).
 
+- 2026-10-20: `v0.1.0-ui.1` pushed. Owner decisions: **Cloud first** (self-hosted Community edition, then a subscription Commercial edition), backend items tags / activity log / backup-restore / `write_text_file` approved, Android focus on an independent environment and its own device checks. See [editions-and-cloud-first.md](editions-and-cloud-first.md), which overrides the phase order above.
+
 ## Open questions for the owner
-1. Approve the order, or move cloud/team earlier?
-2. Backend: may phase 3 start with tags, activity log, backup/restore (all data-only, no engine change)?
-3. Is the first customer a team (needs phase 5 early) or a single operator (phase 1–3 suffice)?
+1. ~~Order~~ decided 2026-10-20: Cloud first.
+2. ~~Backend items~~ approved 2026-10-20.
+3. Is the first customer a team or a single operator? (Cloud first suggests team.)
 4. Remove the star prompt and the patch-log star lock now, or when the repo turns private?
+5. Server language, Community licence, edition limits: see editions-and-cloud-first.md section 7.
