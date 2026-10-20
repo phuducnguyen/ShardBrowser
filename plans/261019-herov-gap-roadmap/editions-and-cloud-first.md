@@ -53,7 +53,7 @@ HeroV mapping (proposal, numbers are placeholders until pricing is decided):
 |---|---|---|---|---|
 | Community | self-host, free | 50 per server | owner + 4 | sync, backup, tags, basic roles, local API |
 | Starter | Commercial | 30 | 1 | hosted cloud, sync |
-| Pro | Commercial | 100 | 1 free + paid | API keys, sharing, folders, Android profiles |
+| Pro | Commercial | 100 | 1 free + paid | API keys, sharing, folders, **Android and iOS profiles (Pro and above only; Community and Starter get Windows, plus macOS and Linux when they ship)** |
 | Team | Commercial | 300 | 3 free + paid | roles, audit log, automation |
 | Business | Commercial | 1,000 | 5 free + paid | import/export, priority support |
 | Share seat | Commercial add-on | none | 1 | open shared items only |
