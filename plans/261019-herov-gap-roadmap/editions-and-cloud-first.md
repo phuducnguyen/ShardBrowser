@@ -86,7 +86,7 @@ Goal: every Android profile is an isolated, internally consistent device.
 Acceptance: 10 distinct real-device captures clean in CreepJS; zero consistency errors; leak test passes across 20 profiles.
 
 ## 6. First task of 0.2.0: Cloud spec
-Write `docs/specs/cloud-sync.md` before code: service stack (Rust axum or Node Fastify), Postgres + S3-compatible storage, auth (argon2id, TOTP), client-side encryption with a passphrase-derived key the server never sees, revision-based sync with a conflict list, Dokploy compose, backup and restore drill. Edition gating (licence claim checked by client and server) is designed in the same spec.
+Spec written: [docs/specs/cloud-sync.md](../../docs/specs/cloud-sync.md) (draft 1). Covers: service stack (Rust axum or Node Fastify), Postgres + S3-compatible storage, auth (argon2id, TOTP), client-side encryption with a passphrase-derived key the server never sees, revision-based sync with a conflict list, Dokploy compose, backup and restore drill. Edition gating (licence claim checked by client and server) is designed in the same spec.
 
 ## 7. Open questions
 - ~~Server language~~ decided: Rust axum.
