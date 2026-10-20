@@ -93,3 +93,12 @@ Spec written: [docs/specs/cloud-sync.md](../../docs/specs/cloud-sync.md) (draft 
 - ~~Licence~~ decided in principle: source-available with branding conditions; text still to draft and have reviewed.
 - Seat and profile limits per edition; trial length (proposal in section 3b).
 - Whether the hosted Commercial cloud runs on your VPS or a managed provider.
+
+### Decisions still to take before building the Cloud (recorded 2026-10-20, owner has deferred them to the plan)
+1. Open `src-tauri/src/cloud/` as the one new module of the frozen core, for the Cloud program.
+2. Offer a "device-only key" mode (no recovery code) next to the recovery-code mode.
+3. Licence service: separate tiny service or inside the website backend.
+4. Where `herov-server` lives: `server/` in this repository as its own Cargo workspace (recommended, keeps spec and code together) or a separate repository.
+
+### Blocking question: the browser engine's licence (raised 2026-10-20)
+The engine the app downloads is closed source and its published terms (summarised in `docs/engine-and-api-reference.md`, section Licensing) do **not** permit using it "as part of a commercial anti-detect, browser or fingerprint-spoofing product or service" and say to contact the authors before building a commercial product on it. The Commercial edition (subscription) and the hosted cloud sell exactly that. Needed before any paid tier ships: written permission or a commercial licence from the engine's authors, or an engine HeroV may lawfully build on. Until resolved, treat the Commercial edition as unlaunchable and keep the Community edition's wording to what the engine terms allow.
