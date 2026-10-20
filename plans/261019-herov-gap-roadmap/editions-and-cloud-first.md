@@ -35,6 +35,31 @@ One developer: the Cloud server track is calendar-bound, so fingerprint/Android 
 - Operations: bulk actions at scale, window synchroniser, activity history, SSO (later), priority support.
 - Priced by profile tier, seats as an add-on; yearly discount; free trial.
 
+## 3b. Limits and billing policy (modelled on HideMyAcc's public pricing page)
+What the page shows (read 2026-10-20; the Monthly/Yearly toggle says "Discount 50%" and does not say which of the two prices is which, so confirm before copying numbers):
+| Plan | Price shown, per month | Profiles | Free sub-accounts |
+|---|---|---|---|
+| Mini | $10 / $5 | 5 | none listed |
+| Starter | $29 / $15 | 30 | none listed |
+| Base | $49 / $25 | 100 | 1 |
+| Team | $99 / $49 | 300 | 3 |
+| Business | $199 / $99 | 1,000 | 5 |
+| Share | $5 / $3 | cannot create profiles | acts as a sub-account on shared items only |
+| Customized | contact support | any | own server, unlimited sharing |
+Policy points: every paid plan has a 7-day free trial; more sub-accounts can be bought on the higher plans; **API, folders, quick profiles, sharing, mobile OS profiles unlock at Base**; import/export only on Business; payment inside the software. Refund and renewal terms sit on separate pages that were not read.
+
+HeroV mapping (proposal, numbers are placeholders until pricing is decided):
+| HeroV tier | Edition | Profiles | Seats | Gated features |
+|---|---|---|---|---|
+| Community | self-host, free | 50 per server | owner + 4 | sync, backup, tags, basic roles, local API |
+| Starter | Commercial | 30 | 1 | hosted cloud, sync |
+| Pro | Commercial | 100 | 1 free + paid | API keys, sharing, folders, Android profiles |
+| Team | Commercial | 300 | 3 free + paid | roles, audit log, automation |
+| Business | Commercial | 1,000 | 5 free + paid | import/export, priority support |
+| Share seat | Commercial add-on | none | 1 | open shared items only |
+| Custom | Commercial | any | any | own-server deployment support |
+Rules: profile count is the main price axis; extra seats are an add-on; 7-day trial; yearly billing about half off (verify wording); limits enforced by a signed licence claim the client checks offline, so a lapsed plan locks creation, never deletes data.
+
 ## 4. Market scan (public pages only, no reverse engineering)
 Figures come from comparison blogs that disagree with each other; confirm on vendor pages before pricing HeroV.
 | Product | What is sold | Pattern to note |
@@ -66,5 +91,5 @@ Write `docs/specs/cloud-sync.md` before code: service stack (Rust axum or Node F
 ## 7. Open questions
 - ~~Server language~~ decided: Rust axum.
 - ~~Licence~~ decided in principle: source-available with branding conditions; text still to draft and have reviewed.
-- Seat and profile limits per edition; trial length (see section 3b once added).
+- Seat and profile limits per edition; trial length (proposal in section 3b).
 - Whether the hosted Commercial cloud runs on your VPS or a managed provider.
