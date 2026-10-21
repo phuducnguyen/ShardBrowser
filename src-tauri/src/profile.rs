@@ -47,6 +47,23 @@ fn write_atomic(path: &Path, body: &[u8]) -> Result<()> {
     ))
 }
 
+/// Which browser engine runs a profile. Fixed when the profile is created.
+/// A profile file without the field is a Chrome profile, so nothing written
+/// before engines existed has to change.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Engine {
+    #[default]
+    Chrome,
+    Camoufox,
+}
+
+impl Engine {
+    pub fn is_chrome(&self) -> bool {
+        matches!(self, Engine::Chrome)
+    }
+}
+
 /// Launcher-side view of a profile (wraps raw FingerprintConfig JSON).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileMeta {
@@ -76,6 +93,9 @@ pub struct ProfileMeta {
     /// Whether this profile answers media questions the Android way.
     #[serde(default)]
     pub android_media: bool,
+    /// The engine this profile runs on.
+    #[serde(default)]
+    pub engine: Engine,
 }
 
 /// On-disk `<profiles_dir>/<id>.json`: FingerprintConfig + `_meta` envelope.
@@ -127,6 +147,10 @@ pub struct StoredMeta {
     /// Blending in and playing video pull apart here, so the operator chooses.
     #[serde(default, skip_serializing_if = "is_false")]
     pub android_media: bool,
+    /// Absent from the file for Chrome, so existing profiles do not grow a line.
+    /// Set once at creation; `save_raw` carries the stored value through edits.
+    #[serde(default, skip_serializing_if = "Engine::is_chrome")]
+    pub engine: Engine,
     /// Bumped by every write. An editor sends back the number it opened, so a
     /// save landing on top of someone else's is refused instead of silent.
     #[serde(default)]
@@ -236,6 +260,7 @@ pub fn list_all() -> Result<Vec<ProfileMeta>> {
             extensions: stored.meta.extensions,
             mobile: claims_mobile(&stored.config),
             android_media: stored.meta.android_media,
+            engine: stored.meta.engine,
         });
     }
     // Pinned first, then newest-first by created_at; name fallback for same-second ties.
@@ -364,6 +389,9 @@ fn save_raw_locked(stored: &mut StoredProfile) -> Result<()> {
                 stored.meta.created_at = existing.meta.created_at;
             }
             stored.meta.pinned = existing.meta.pinned;
+            // The engine is chosen once; a payload cannot move a profile to another one,
+            // because its data folder and fingerprint belong to the engine that made them.
+            stored.meta.engine = existing.meta.engine;
             if stored.meta.folder.is_empty() {
                 stored.meta.folder = existing.meta.folder;
             }
@@ -481,6 +509,7 @@ pub fn clone_profile(id: &str) -> Result<ProfileMeta> {
         extensions: src.meta.extensions,
         mobile: claims_mobile(&src.config),
         android_media: src.meta.android_media,
+        engine: src.meta.engine,
     })
 }
 
@@ -608,6 +637,19 @@ mod tests {
         // A profile written before the setting existed reads as off.
         let old: StoredMeta = serde_json::from_str("{}").unwrap();
         assert!(!old.android_media);
+    }
+
+    /// A profile written before engines existed is a Chrome profile, and Chrome
+    /// is not written, so those files stay byte-for-byte what they were.
+    #[test]
+    fn engine_defaults_to_chrome_and_is_written_only_for_camoufox() {
+        let old: StoredMeta = serde_json::from_str("{}").unwrap();
+        assert_eq!(old.engine, Engine::Chrome);
+        assert!(!serde_json::to_string(&old).unwrap().contains("engine"));
+
+        let camou: StoredMeta = serde_json::from_str(r#"{"engine":"camoufox"}"#).unwrap();
+        assert_eq!(camou.engine, Engine::Camoufox);
+        assert!(serde_json::to_string(&camou).unwrap().contains("\"engine\":\"camoufox\""));
     }
 
     /// The launcher's rule and the core's rule must agree about what a phone is.

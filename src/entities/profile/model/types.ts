@@ -21,6 +21,8 @@ export type ProfileMeta = {
   extensions: string[];
   /// Phone/tablet fingerprint, decided in Rust by the core's own rule.
   mobile: boolean;
+  /// Which browser engine runs the profile; fixed at creation. Absent = "chrome".
+  engine?: "chrome" | "camoufox";
 };
 
 export type ProfileForm = {

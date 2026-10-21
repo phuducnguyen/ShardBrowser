@@ -518,6 +518,8 @@ td .ellip { display: block; max-width: 36ch; overflow: hidden; text-overflow: el
 .savebar.split { justify-content: space-between; }
 .select.narrow-select { max-width: 280px; }
 
+.engine-tag { font-weight: 700; color: var(--primary-text); }
+
 /* ---------- regions: every area has a visible edge, on both themes ---------- */
 .topbar { padding-bottom: 14px; border-bottom: 1px solid var(--divider); }
 .view { padding-top: 16px; }

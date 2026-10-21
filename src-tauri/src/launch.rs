@@ -64,6 +64,10 @@ pub async fn launch_profile_synced(
     if Tracker::shared().is_running(profile_id) {
         anyhow::bail!("profile {profile_id} is already running");
     }
+    // A Camoufox profile has its own engine, data folder and flags; nothing below applies to it.
+    if profile::load_raw(profile_id)?.meta.engine == profile::Engine::Camoufox {
+        return crate::camoufox::launch(profile_id, headless).await;
+    }
     let bin = resolve_binary()?;
     let stored = profile::load_raw(profile_id)?;
     let udd = profile::user_data_dir(profile_id)?;

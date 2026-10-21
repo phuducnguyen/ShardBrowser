@@ -622,6 +622,8 @@
 .hv .savebar.split { justify-content: space-between; }
 .hv .select.narrow-select { max-width: 280px; }
 
+.hv .engine-tag { font-weight: 700; color: var(--primary-text); }
+
 /* ---------- regions: every area has a visible edge, on both themes ---------- */
 .hv .topbar { padding-bottom: 14px; border-bottom: 1px solid var(--divider); }
 .hv .view { padding-top: 16px; }

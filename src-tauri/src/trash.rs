@@ -216,6 +216,7 @@ pub fn restore(id: &str) -> Result<profile::ProfileMeta> {
         extensions: stored.meta.extensions.clone(),
         mobile: crate::profile::claims_mobile(&stored.config),
         android_media: false,
+        engine: stored.meta.engine,
     })
 }
 

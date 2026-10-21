@@ -78,6 +78,14 @@ describe("Profiles window: list", () => {
     expect(within(row("Direct test")).getByText("never")).toBeInTheDocument();
   });
 
+  it("names the engine of a Camoufox profile and says nothing for a Chrome one", async () => {
+    profiles = [...profiles, profile("id-f-0006", "Fox 1", { notes: "Instagram", engine: "camoufox" })];
+    await renderPage();
+    expect(within(row("Fox 1")).getByText("Camoufox")).toBeInTheDocument();
+    expect(within(row("Fox 1")).getByText(/Instagram/)).toBeInTheDocument();
+    expect(within(row("Shop A")).queryByText("Camoufox")).not.toBeInTheDocument();
+  });
+
   it("filters by status chip with counts", async () => {
     const user = await renderPage();
     expect(screen.getByRole("radio", { name: /^Running\s*1$/ })).toBeInTheDocument();

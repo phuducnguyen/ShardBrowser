@@ -7,6 +7,7 @@ mod cookies;
 mod extensions;
 mod fingerprints;
 mod gpu_caps;
+mod camoufox;
 mod launch;
 mod mcp_setup;
 mod migrate;
@@ -502,6 +503,7 @@ pub fn save_profile_core(
         extensions: stored.meta.extensions,
         mobile: profile::claims_mobile(&stored.config),
         android_media: false,
+        engine: stored.meta.engine,
     })
 }
 

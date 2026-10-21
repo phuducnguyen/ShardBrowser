@@ -67,7 +67,10 @@ export function ProfileRow({ profile: p, proxy }: { profile: ProfileMeta; proxy:
           {p.pinned && <span className="dim" title={t("profileRow.pinnedTitle")}><Icon name="pin" size={14} /><span className="sr-only">{t("profileRow.pinnedTitle")}</span></span>}
           <button type="button" className="name-btn" onClick={() => void expand(p.id)}>{p.name}</button>
         </span>
-        <span className="sub">{p.notes || p.id.slice(0, 8)}</span>
+        <span className="sub">
+          {p.engine === "camoufox" && <><span className="engine-tag">{t("deviceSection.engineCamoufox")}</span>{" · "}</>}
+          {p.notes || p.id.slice(0, 8)}
+        </span>
       </td>
       <td>
         <span className={isRunning ? "status" : "status is-idle"}>
