@@ -15,9 +15,21 @@ describe("Vietnamese", () => {
     expect(translate("vi", "deviceSection.count", { n: 4 })).toBe("4 thiết bị phù hợp");
   });
 
-  it("falls back to English for a key it does not have yet", () => {
-    expect("palette.click.label" in vi).toBe(false);
-    expect(translate("vi", "palette.click.label")).toBe(translate("en", "palette.click.label"));
+  it("falls back to English for a key it does not have", () => {
+    const table = vi as Record<string, string>;
+    const key = "palette.click.label";
+    const saved = table[key];
+    expect(saved).toBeTruthy(); // the locale is complete today
+    delete table[key];
+    try {
+      expect(translate("vi", key)).toBe(translate("en", key));
+    } finally {
+      table[key] = saved;
+    }
+  });
+
+  it("is complete: every English key has a Vietnamese text", () => {
+    expect(Object.keys(en).filter((k) => !(k in vi))).toEqual([]);
   });
 
   it("holds no key that English lacks, and keeps every placeholder of the English text", () => {
