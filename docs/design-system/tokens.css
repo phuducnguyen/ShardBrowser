@@ -39,8 +39,14 @@
   --on-tint: var(--p10);
   --rail-bg: var(--surface-low);
 
+  /* action colour: the filled buttons. Deeper and calmer than the brand seed; white text on it
+     is 5.2:1 at the lit edge and 6.8:1 at the base (WCAG AA is 4.5). */
+  --action: #4a3fe0; --action-lift: #6254f2; --action-press: #3a2fc0;
+  --action-shadow: 0 1px 2px rgb(30 22 130 / .4), 0 8px 20px -8px rgb(74 63 224 / .6);
+  --action-shadow-hover: 0 1px 2px rgb(30 22 130 / .4), 0 12px 26px -8px rgb(74 63 224 / .72);
+
   /* semantic status (ShardX values, text-safe variants) */
-  --success: #0b7a45; --success-container: #dff7ea; --run: #0e8453;
+  --success: #0b7a45; --success-container: #dff7ea; --run: #0b7a50;
   --error: #ba1a1a; --error-container: #ffdad6;
   --warning: #a14b00; --warning-container: #ffe9d6;
 
@@ -86,7 +92,7 @@
   --tint-strong: color-mix(in srgb, var(--brand) 38%, var(--surface));
   --on-tint: #e0e0ff;
   --rail-bg: #0d0e15;
-  --success: #6ee7a8; --success-container: #12382a; --run: #0e8453;
+  --success: #6ee7a8; --success-container: #12382a; --run: #0b7a50;
   --error: #ffb4ab; --error-container: #5c1a17;
   --warning: #ffb77c; --warning-container: #4a2a0e;
   --e1: 0 1px 2px rgb(0 0 0 / .5), 0 1px 3px 1px rgb(0 0 0 / .3);
