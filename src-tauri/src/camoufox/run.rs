@@ -412,6 +412,13 @@ mod tests {
         println!("place from this address: {place:?}");
         let mut p = plan("real-url", &s, &fx, false, place.as_ref(), None).unwrap();
         prepare_profile_dir(&fx, chosen_preset(&s, "real-url").unwrap().0.phone.is_some()).unwrap();
+        if let Ok(extra) = std::env::var("HEROV_PREFS_JSON") {
+            // Try other pref values without rebuilding.
+            let mut prefs = joined(&p.env, "CAMOU_PREFS_").as_object().cloned().unwrap();
+            for (k, v) in serde_json::from_str::<serde_json::Value>(&extra).unwrap().as_object().unwrap() { prefs.insert(k.clone(), v.clone()); }
+            p.env.retain(|(k, _)| !k.starts_with("CAMOU_PREFS_"));
+            p.env.extend(config::chunked_env("CAMOU_PREFS", &serde_json::Value::Object(prefs), config::chunk_size()));
+        }
         if let Ok(extra) = std::env::var("HEROV_CFG_JSON") {
             // Try config changes without rebuilding; a null removes the key.
             let mut cfg = joined(&p.env, "CAMOU_CONFIG_").as_object().cloned().unwrap();
@@ -730,7 +737,10 @@ try{document.getElementById('o').textContent=[
         let page = tmp.join("probe.html");
         std::fs::write(&page, format!(r#"<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body><script>
 const n=navigator,s=screen,m=q=>matchMedia(q).matches;
-setTimeout(()=>{{let t;try{{t=[
+setTimeout(async()=>{{let t;const tzs=()=>Intl.DateTimeFormat().resolvedOptions().timeZone+' off='+new Date().getTimezoneOffset()+' '+new Date(2026,6,1,12).toString().slice(16,40);
+const wk=await new Promise(r=>{{try{{const w=new Worker(URL.createObjectURL(new Blob(['postMessage(Intl.DateTimeFormat().resolvedOptions().timeZone+" off="+new Date().getTimezoneOffset()+" "+new Date(2026,6,1,12).toString().slice(16,40))'])));w.onmessage=e=>r(e.data);setTimeout(()=>r('timeout'),2500)}}catch(x){{r('ERR '+x)}}}});
+const fr=document.createElement('iframe');document.body.appendChild(fr);const ifr=fr.contentWindow.Intl.DateTimeFormat().resolvedOptions().timeZone+' off='+fr.contentWindow.Date.prototype.getTimezoneOffset.call(new fr.contentWindow.Date());
+try{{t=['TZ main='+tzs(),'TZ worker='+wk,'TZ iframe='+ifr,
 'UA='+n.userAgent,'platform='+n.platform,'touchPoints='+n.maxTouchPoints,'ontouchstart='+('ontouchstart' in window),
 'coarse='+m('(pointer: coarse)')+' fine='+m('(pointer: fine)')+' hover='+m('(hover: hover)')+' anyCoarse='+m('(any-pointer: coarse)')+' anyFine='+m('(any-pointer: fine)'),
 'dpr='+devicePixelRatio,'screen='+s.width+'x'+s.height+' avail='+s.availWidth+'x'+s.availHeight,
@@ -741,7 +751,9 @@ new Image().src='http://127.0.0.1:{port}/?'+encodeURIComponent(t)}},1500);
 </script>"#)).unwrap();
         let preset_id = std::env::var("HEROV_PHONE_PRESET").unwrap_or_else(|_| "cf-and-0".into());
         let s = stored(json!({"camoufox": {"preset": preset_id}}));
-        let mut p = plan("real-phone-win", &s, &tmp.join("fx"), false, None, None).unwrap();
+        let place = Place { ip: None, timezone: "Asia/Bangkok".into(), locale: "vi-VN".into(), geolocation: None };
+        println!("host zone: {}", String::from_utf8_lossy(&std::process::Command::new("tzutil").arg("/g").output().map(|o| o.stdout).unwrap_or_default()).trim());
+        let mut p = plan("real-phone-win", &s, &tmp.join("fx"), false, Some(&place), None).unwrap();
         prepare_profile_dir(&tmp.join("fx"), chosen_preset(&s, "real-phone-win").unwrap().0.phone.is_some()).unwrap();
         if let Ok(extra) = std::env::var("HEROV_PREFS_JSON") {
             // Try other pref values without rebuilding.

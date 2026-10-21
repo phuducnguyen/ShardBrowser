@@ -21,3 +21,15 @@ Status 2026-10-21. Owner decisions: real-device capture is **not needed now**; t
 
 ## Done 2026-10-21: the pool is in the picker
 Create profile → Camoufox → Android now shows a segment filter (flagship, mid-range, entry-level) and a GPU family filter, both with counts so a chip never leads to an empty list; a device list grouped by class; an Android version list limited to what that class of phone could run (stored as `camoufox.android_version`, applied to the user agent and `appVersion` only if inside the class range); and a card of what sites will see. A new profile gets a random phone on its own; Random device never repeats the current one; a filter that excludes the current phone moves to one that fits. Every automatic or chosen change raises a toast. Tests: `PhonePicker.test.tsx` (9), Rust `a_phone_class_decides_which_android_versions_are_offered`.
+
+## Software flag on phones: what was ruled out (2026-10-21)
+Measured with the real engine on scanbrowser.net, one change at a time on the same phone, Hardware stays OK in every run:
+
+| Change | Software verdict |
+|---|---|
+| Time zone: host is Mountain Standard Time; page reads `Asia/Bangkok`, offset -420 in the main thread, a worker and an iframe, and `Date` strings agree | still anomaly (and the Windows and macOS profiles pass with the same zone) |
+| Time zone set to `Asia/Ho_Chi_Minh` | still anomaly |
+| Fonts: phone list (9), empty list, `Roboto` only, Linux recorded base, engine default | still anomaly each time; the site's client id does not even change with fonts or zone |
+| Touch events switched off | still anomaly |
+
+So the host time zone is **not** leaking (it is hidden in every context tested) and neither fonts, zone nor touch decide this verdict. What differs from the recorded desktop profiles that pass is only that a phone has no recorded device behind it. Item 1 of the table above is therefore parked until real device data exists; items 4 (audio), 2 (WebGL) and 3 (pointer) do not depend on it.
