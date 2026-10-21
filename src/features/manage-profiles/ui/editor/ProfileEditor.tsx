@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useCamoufox } from "../../../../entities/camoufox";
 import { NavTabs, Window, type TabItem } from "../../../../shared/ui/hv";
 import { useT } from "../../../../shared/i18n";
 import { useProfile, type ProfileForm } from "../../../../entities/profile";
@@ -50,7 +51,9 @@ function EditorBody({ f }: { f: ProfileForm }) {
     void saveDraft();
   };
 
-  const tabs: TabItem<EditorTab>[] = [
+  useEffect(() => { void useCamoufox.getState().load(); }, []);
+
+  const allTabs: TabItem<EditorTab>[] = [
     { id: "overview", label: t("profileEditor.tabOverview") },
     { id: "proxy", label: t("profileEditor.tabProxy") },
     { id: "extensions", label: t("profileEditor.tabExtensions") },
@@ -60,6 +63,10 @@ function EditorBody({ f }: { f: ProfileForm }) {
     { id: "advanced", label: t("profileEditor.tabAdvanced") },
     { id: "cookies", label: t("profileEditor.tabCookies") },
   ];
+  // A Camoufox profile takes language, location and privacy from its proxy and device; extensions,
+  // cookie files and the Chrome-only switches do not apply to it.
+  const tabs = f.engine === "camoufox" ? allTabs.filter((x) => x.id === "overview" || x.id === "proxy") : allTabs;
+  const shownTab: EditorTab = tabs.some((x) => x.id === tab) ? tab : "overview";
 
   return (
     <>
@@ -68,7 +75,7 @@ function EditorBody({ f }: { f: ProfileForm }) {
         actions={<button type="button" className="btn btn-text btn-sm" onClick={cancelEdit}>{t("profiles.editorBack")}</button>}
       >
         <aside className="panel" aria-label={t("profileEditor.tablist")}>
-          <NavTabs label={t("profileEditor.tablist")} idPrefix={PREFIX} value={tab} tabs={tabs} onChange={setTab} />
+          <NavTabs label={t("profileEditor.tablist")} idPrefix={PREFIX} value={shownTab} tabs={tabs} onChange={setTab} />
         </aside>
         <div className="stack">
           <div className="card formbar">
@@ -92,15 +99,15 @@ function EditorBody({ f }: { f: ProfileForm }) {
             </button>
           </div>
           <div className="card grow">
-            <div className="tabpanel" role="tabpanel" id={`${PREFIX}-panel`} aria-labelledby={`${PREFIX}-tab-${tab}`} key={tab}>
-              {tab === "overview" && <OverviewTab {...props} gpu={gpu} />}
-              {tab === "proxy" && <ProxyTab {...props} />}
-              {tab === "extensions" && <ExtensionsTab {...props} />}
-              {tab === "locale" && <LocaleTab {...props} />}
-              {tab === "privacy" && <PrivacyTab {...props} />}
-              {tab === "location" && <LocationTab {...props} />}
-              {tab === "advanced" && <AdvancedTab {...props} osFilter={gpu.osFilter} />}
-              {tab === "cookies" && <CookiesTab {...props} />}
+            <div className="tabpanel" role="tabpanel" id={`${PREFIX}-panel`} aria-labelledby={`${PREFIX}-tab-${shownTab}`} key={shownTab}>
+              {shownTab === "overview" && <OverviewTab {...props} gpu={gpu} />}
+              {shownTab === "proxy" && <ProxyTab {...props} />}
+              {shownTab === "extensions" && <ExtensionsTab {...props} />}
+              {shownTab === "locale" && <LocaleTab {...props} />}
+              {shownTab === "privacy" && <PrivacyTab {...props} />}
+              {shownTab === "location" && <LocationTab {...props} />}
+              {shownTab === "advanced" && <AdvancedTab {...props} osFilter={gpu.osFilter} />}
+              {shownTab === "cookies" && <CookiesTab {...props} />}
             </div>
           </div>
         </div>

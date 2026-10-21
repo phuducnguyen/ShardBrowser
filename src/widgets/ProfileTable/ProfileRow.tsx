@@ -108,8 +108,11 @@ export function ProfileRow({ profile: p, proxy }: { profile: ProfileMeta; proxy:
             { label: t("profileRow.menuEditNotes"), onSelect: () => setQuickEdit({ kind: "notes", profile: p }) },
             { label: t("profileRow.menuMoveToFolder"), onSelect: () => setFolderModal({ profileId: p.id }) },
             ...(p.folder ? [{ label: t("profileRow.menuRemoveFromFolder"), onSelect: () => void setProfileFolder(p.id, "") }] : []),
-            { label: t("profileRow.menuExportCookies"), onSelect: () => void exportCookies(p) },
-            { label: t("profileRow.menuImportCookies"), onSelect: () => void importCookies(p) },
+            // Cookie files are read from and written to Chromium's database; Camoufox profiles have none of it.
+            ...(p.engine === "camoufox" ? [] : [
+              { label: t("profileRow.menuExportCookies"), onSelect: () => void exportCookies(p) },
+              { label: t("profileRow.menuImportCookies"), onSelect: () => void importCookies(p) },
+            ]),
             { label: t("profileRow.menuDelete"), onSelect: () => void remove(p.id), danger: true },
           ]}
         />

@@ -227,6 +227,18 @@ describe("Profiles window: row menu", () => {
     expect(labels.at(-1)).toBe("Delete");
   });
 
+  it("leaves out the cookie file actions for a Camoufox profile, which has no Chromium cookie database", async () => {
+    profiles = [...profiles, profile("id-f-0006", "Fox 1", { engine: "camoufox" })];
+    const user = await renderPage();
+    await user.click(within(row("Fox 1")).getByRole("button", { name: "Actions for Fox 1" }));
+    const labels = screen.getAllByRole("menuitem").map((i) => i.textContent);
+    expect(labels).toContain("Edit");
+    expect(labels.some((l) => /cookie/i.test(l ?? ""))).toBe(false);
+    await user.keyboard("{Escape}");
+    await user.click(within(row("Shop A")).getByRole("button", { name: "Actions for Shop A" }));
+    expect(screen.getAllByRole("menuitem").some((i) => /cookie/i.test(i.textContent ?? ""))).toBe(true);
+  });
+
   it("offers Unpin for a pinned profile and pins through the backend", async () => {
     const user = await renderPage();
     await user.click(within(row("Shop A")).getByRole("button", { name: "Actions for Shop A" }));

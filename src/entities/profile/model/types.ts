@@ -49,6 +49,12 @@ export type ProfileForm = {
   /// Editor state, not part of the fingerprint — `toStored` does not write it.
   cookies_file: string;
 
+  /// The engine this profile runs on. Chosen when it is created; an existing profile keeps it.
+  engine: "chrome" | "camoufox";
+  /// The recorded Firefox device a Camoufox profile wears (an id from the Camoufox library).
+  /// Empty until one is picked; unused by Chrome profiles.
+  camoufox_preset: string;
+
   gpu_preset_id: string;
   user_agent: string;
   hardware_concurrency: number;

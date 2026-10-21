@@ -623,6 +623,10 @@
 .hv .select.narrow-select { max-width: 280px; }
 
 .hv .engine-tag { font-weight: 700; color: var(--primary-text); }
+.hv .engine-card { display: grid; gap: var(--sp-3); justify-items: start; max-width: 520px; }
+.hv .engine-card .hint { margin: 0; }
+.hv .engine-progress { display: grid; gap: 4px; width: 100%; }
+.hv .engine-progress progress { width: 100%; height: 8px; accent-color: var(--action); }
 
 /* ---------- regions: every area has a visible edge, on both themes ---------- */
 .hv .topbar { padding-bottom: 14px; border-bottom: 1px solid var(--divider); }

@@ -432,6 +432,24 @@ pub fn enrich_new_config(
     }
 }
 
+/// Whether a profile payload names the Camoufox engine in its `_meta`.
+fn is_camoufox_payload(payload: &Value) -> bool {
+    payload.get("_meta").and_then(|m| m.get("engine")).and_then(|v| v.as_str()) == Some("camoufox")
+}
+
+#[cfg(test)]
+mod camoufox_payload_tests {
+    use super::*;
+
+    #[test]
+    fn only_a_payload_that_names_camoufox_skips_chrome_enrichment() {
+        assert!(is_camoufox_payload(&serde_json::json!({"_meta": {"engine": "camoufox"}})));
+        assert!(!is_camoufox_payload(&serde_json::json!({"_meta": {"engine": "chrome"}})));
+        assert!(!is_camoufox_payload(&serde_json::json!({"_meta": {}})));
+        assert!(!is_camoufox_payload(&serde_json::json!({"name": "x"})));
+    }
+}
+
 /// Core of `profile_save` callable without Tauri context; `enrich=false` stores verbatim.
 pub fn save_profile_core(
     window: Option<&tauri::WebviewWindow>,
@@ -446,7 +464,9 @@ pub fn save_profile_core(
         .and_then(|v| v.as_str())
         .map(|s| s.is_empty())
         .unwrap_or(true);
-    if is_new && enrich {
+    // Enrichment is Chrome's (hardware, platform version, screen clamp); a Camoufox profile takes
+    // its identity from the Camoufox library when it starts and must not grow Chrome fields.
+    if is_new && enrich && !is_camoufox_payload(&payload) {
         if let Some(obj) = payload.as_object_mut() {
             enrich_new_config(window, obj);
         }

@@ -7,6 +7,7 @@ import { defaultForm, useProfile, type ProfileForm } from "../../../../entities/
 import type { FingerprintEntry } from "../../../../entities/fingerprint";
 import { factoryDefaults, useProfileDefaults } from "../../../../entities/profile-defaults";
 import { useExtensions } from "../../../../entities/extension";
+import { useCamoufox } from "../../../../entities/camoufox";
 import { useGpuCompat } from "../../../../shared/model/gpuCompat";
 import { useToastStore } from "../../../../shared/model/toast";
 import { backend } from "../../../../test/tauri";
@@ -72,17 +73,106 @@ beforeEach(() => {
 });
 
 describe("Create profile: engine and OS", () => {
-  it("offers Chrome, and shows Camoufox and iOS as unavailable with the reason on screen", () => {
+  it("offers Chrome and Camoufox, and shows iOS as unavailable with the reason on screen", async () => {
     renderEditor();
     const engine = within(screen.getByRole("radiogroup", { name: "Browser engine" }));
     expect(engine.getByRole("radio", { name: /Chrome/ })).toBeChecked();
-    expect(engine.getByRole("radio", { name: /Camoufox/ })).toBeDisabled();
-    expect(engine.getByText("engine not installed")).toBeVisible();
+    await waitFor(() => expect(engine.getByRole("radio", { name: /Camoufox/ })).toBeEnabled());
     const os = within(screen.getByRole("radiogroup", { name: "Operating system" }));
     expect(os.getByRole("radio", { name: /iOS/ })).toBeDisabled();
     expect(os.getByText("planned")).toBeVisible();
     expect(os.getByRole("radio", { name: "Windows" })).toBeChecked();
     expect(os.getByRole("radio", { name: "Android" })).toBeEnabled();
+  });
+});
+
+const CF_STATUS = { supported: true, installed: true, version: "v158.0-beta.40", binary_path: "C:\\x\\camoufox.exe", size_bytes: 2_572_155_417, download_bytes: 1_315_506_159 };
+const cfDevice = (id: string, os: "windows" | "macos" | "linux", label: string) => ({ id, os, label, screen: [1920, 1080], cores: 6, gpu: "GPU" });
+const CF_LIBRARY = [
+  cfDevice("cf-win-0", "windows", "Windows · 1920×1080 · Intel HD Graphics 400"),
+  cfDevice("cf-win-1", "windows", "Windows · 1920×1080 · NVIDIA GeForce GTX 1650"),
+  cfDevice("cf-mac-0", "macos", "macOS · 1440×900 · Apple M1"),
+];
+
+describe("Create profile: Camoufox engine", () => {
+  beforeEach(() => {
+    backend.handlers.camoufox_status = () => CF_STATUS;
+    backend.handlers.camoufox_library = () => CF_LIBRARY;
+    backend.handlers.profile_save = ({ payload }) => ({ id: "new-1", name: (payload as { name: string }).name });
+    backend.handlers.profile_bind_proxy = () => null;
+    useCamoufox.setState({ status: null, library: [], installing: false, progress: null });
+  });
+
+  const pickCamoufox = async (user: ReturnType<typeof userEvent.setup>) => {
+    const radio = await screen.findByRole("radio", { name: /Camoufox/ });
+    await waitFor(() => expect(radio).toBeEnabled());
+    await user.click(radio);
+  };
+
+  it("swaps the device card for Firefox devices and leaves only the Overview and Proxy tabs", async () => {
+    const user = renderEditor();
+    expect(screen.getAllByRole("tab")).toHaveLength(8);
+    await pickCamoufox(user);
+    expect(draft().engine).toBe("camoufox");
+    const options = within(await screen.findByLabelText("Device")).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["Windows · 1920×1080 · Intel HD Graphics 400", "Windows · 1920×1080 · NVIDIA GeForce GTX 1650"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Overview", "Proxy"]);
+    await waitFor(() => expect(draft().camoufox_preset).toMatch(/^cf-win-/));
+    expect(screen.getByText("Firefox 158")).toBeVisible();
+    expect(screen.queryByLabelText("GPU maker")).not.toBeInTheDocument();
+  });
+
+  it("lists the devices of the OS that is picked", async () => {
+    const user = renderEditor();
+    await pickCamoufox(user);
+    await user.click(await screen.findByRole("radio", { name: "macOS" }));
+    expect(within(screen.getByLabelText("Device")).getAllByRole("option").map((o) => o.textContent)).toEqual(["macOS · 1440×900 · Apple M1"]);
+    await waitFor(() => expect(draft().camoufox_preset).toBe("cf-mac-0"));
+  });
+
+  it("saves a payload that names the engine and the device and carries no Chrome fingerprint", async () => {
+    const user = renderEditor();
+    await pickCamoufox(user);
+    await waitFor(() => expect(draft().camoufox_preset).toMatch(/^cf-win-/));
+    const preset = draft().camoufox_preset;
+    await user.type(screen.getByRole("textbox", { name: "Profile name" }), "Fox 1");
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+    await waitFor(() => expect(backend.argsOf("profile_save")).toHaveLength(1));
+    const payload = backend.argsOf("profile_save")[0].payload as Record<string, any>;
+    expect(payload._meta.engine).toBe("camoufox");
+    expect(payload.camoufox).toEqual({ preset });
+    expect(payload.name).toBe("Fox 1");
+    expect(payload.navigator).toBeUndefined();
+    expect(payload.noise).toBeUndefined();
+  });
+
+  it("asks to install the engine when it is not installed, and installs on request", async () => {
+    backend.handlers.camoufox_status = () => ({ ...CF_STATUS, installed: false, binary_path: null, size_bytes: null });
+    backend.handlers.camoufox_install = () => CF_STATUS;
+    const user = renderEditor();
+    await pickCamoufox(user);
+    expect(await screen.findByText(/Not installed · 1\.3 GB to download/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(backend.argsOf("camoufox_install")).toEqual([{ force: false }]));
+  });
+
+  it("is not offered on a system without a build", async () => {
+    backend.handlers.camoufox_status = () => ({ ...CF_STATUS, supported: false, installed: false });
+    renderEditor();
+    const radio = await screen.findByRole("radio", { name: /Camoufox/ });
+    await waitFor(() => expect(radio).toBeDisabled());
+    expect(screen.getByText("Windows only for now")).toBeVisible();
+  });
+
+  it("keeps the engine and the device of an existing profile fixed", async () => {
+    renderEditor({ id: "id-9", rev: 1, engine: "camoufox", camoufox_preset: "cf-win-0", name: "Fox" });
+    const engine = within(screen.getByRole("radiogroup", { name: "Browser engine" }));
+    expect(engine.getByRole("radio", { name: /Camoufox/ })).toBeChecked();
+    expect(engine.getByRole("radio", { name: /Chrome/ })).toBeDisabled();
+    expect(screen.getByText("The engine is chosen when the profile is created.")).toBeVisible();
+    expect(await screen.findByLabelText("Device")).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "macOS" })).toBeDisabled();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Overview", "Proxy"]);
   });
 });
 

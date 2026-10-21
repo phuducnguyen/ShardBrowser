@@ -41,6 +41,18 @@ describe("Settings window", () => {
     expect(screen.getByLabelText("Provider")).toHaveValue("ip-api.com");
   });
 
+  it("shows the Camoufox engine under Browser, with its size, and installs it on request", async () => {
+    backend.handlers.camoufox_status = () => ({ supported: true, installed: false, version: "v158.0-beta.40", binary_path: null, size_bytes: null, download_bytes: 1_315_506_159 });
+    backend.handlers.camoufox_install = () => ({ supported: true, installed: true, version: "v158.0-beta.40", binary_path: "C:\\x\\camoufox.exe", size_bytes: 2_572_155_417, download_bytes: 1_315_506_159 });
+    const user = await renderPage();
+    await goTo(user, "Browser");
+    expect(await screen.findByText(/Not installed · 1\.3 GB to download/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(backend.argsOf("camoufox_install")).toEqual([{ force: false }]));
+    expect(await screen.findByText(/Installed · v158\.0-beta\.40 · 2\.6 GB on disk/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reinstall" })).toBeEnabled();
+  });
+
   it("moves between sections with the arrow keys", async () => {
     const user = await renderPage();
     screen.getByRole("tab", { name: "General" }).focus();

@@ -2,14 +2,15 @@ import { Swatches } from "../../../../shared/ui/hv";
 import { PROFILE_COLORS } from "../../../../shared/ui/ColorSwatches";
 import { useT } from "../../../../shared/i18n";
 import type { GpuPicker } from "../../lib/useGpuPicker";
+import { CamoufoxSection } from "./CamoufoxSection";
 import { DeviceSection } from "./DeviceSection";
 import type { TabProps } from "./types";
 
-export function OverviewTab({ f, u, gpu }: TabProps & { gpu: GpuPicker }) {
+export function OverviewTab({ f, u, patch, gpu }: TabProps & { gpu: GpuPicker }) {
   const t = useT();
   return (
     <>
-      <DeviceSection f={f} u={u} gpu={gpu} />
+      {f.engine === "camoufox" ? <CamoufoxSection f={f} u={u} patch={patch} /> : <DeviceSection f={f} u={u} gpu={gpu} />}
 
       <div className="group">
         <p className="label" id="pe-color-label">{t("inlineEditor.colorLabel")}</p>

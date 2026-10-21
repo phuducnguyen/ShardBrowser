@@ -3,6 +3,7 @@ import { OS_OPTIONS } from "../../../../shared/constants";
 import { useT } from "../../../../shared/i18n";
 import type { GpuPicker } from "../../lib/useGpuPicker";
 import type { ProfileForm } from "../../../../entities/profile";
+import { EngineChips } from "./EngineChips";
 import type { Update } from "./types";
 
 /// Values of the `Sec-CH-UA-Platform-Version` client hint a page can read. Windows 10 reports 10.0.0;
@@ -38,20 +39,7 @@ export function DeviceSection({ f, u, gpu }: { f: ProfileForm; u: Update; gpu: G
 
   return (
     <>
-      <div className="group">
-        <h2 className="sect">{t("deviceSection.engineLabel")}</h2>
-        <Chips
-          name="profile-engine"
-          label={t("deviceSection.engineLabel")}
-          value="chrome"
-          options={[
-            { value: "chrome", label: t("deviceSection.engineChrome") },
-            { value: "camoufox", label: t("deviceSection.engineCamoufox"), disabled: true, hint: t("deviceSection.noEngine") },
-          ]}
-          onChange={() => {}}
-        />
-      </div>
-
+      <EngineChips f={f} u={u} />
       <div className="group">
         <h2 className="sect">{t("inlineEditor.osLabel")}</h2>
         <Chips

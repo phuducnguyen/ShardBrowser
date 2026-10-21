@@ -8,6 +8,7 @@ import type { Settings, ApiInfo } from "../../entities/settings";
 import { HELPER_KINDS } from "../../entities/settings";
 import { settingsGet, settingsSave, settingsLoadError, apiInfo, apiRegenerateToken, mcpDownload } from "../../entities/settings";
 import { DataRootCard } from "../../features/manage-profiles/ui/DataRootCard";
+import { CamoufoxEngineCard } from "../../features/manage-profiles/ui/CamoufoxEngineCard";
 import { ProfileDefaultsTab } from "./ProfileDefaultsTab";
 import { useT, useLang, LANG_OPTIONS, type Lang } from "../../shared/i18n";
 
@@ -138,6 +139,12 @@ export function SettingsPage() {
 
           {tab === "browser" && (
             <>
+              <div className="group">
+                <p className="sect">{t("camoufox.title")}</p>
+                <p className="hint">{t("camoufox.help")}</p>
+                <CamoufoxEngineCard />
+              </div>
+
               <div className="group">
                 <p className="sect">{t("settings.helperTitle")}</p>
                 <p className="hint">

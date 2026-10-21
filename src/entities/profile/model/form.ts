@@ -16,6 +16,8 @@ export const defaultForm = (): ProfileForm => ({
   screen_w: 0,
   screen_h: 0,
   cookies_file: "",
+  engine: "chrome",
+  camoufox_preset: "",
 
   // Empty until snapped to gpusForOs[0] by useEffect.
   gpu_preset_id: "",
@@ -61,6 +63,8 @@ export function fromStored(stored: any): ProfileForm {
   f.color = stored?._meta?.color ?? "";
   f.extensions = Array.isArray(stored?._meta?.extensions) ? stored._meta.extensions : [];
   f.android_media = stored?._meta?.android_media === true;
+  f.engine = stored?._meta?.engine === "camoufox" ? "camoufox" : "chrome";
+  f.camoufox_preset = typeof stored?.camoufox?.preset === "string" ? stored.camoufox.preset : "";
   // Empty for legacy profiles; snapped by useEffect.
   f.gpu_preset_id = stored?._meta?.gpu_preset_id ?? "";
   f.user_agent = stored?.navigator?.user_agent ?? f.user_agent;
@@ -103,6 +107,23 @@ export function fromStored(stored: any): ProfileForm {
 
 /// Build on-disk FingerprintConfig from library payload + user-edited fields.
 export function toStored(f: ProfileForm, lib: FingerprintEntry | null): any {
+  // A Camoufox profile carries no Chrome fingerprint: its device is named here and the launcher
+  // builds the identity from the Camoufox library when the profile starts.
+  if (f.engine === "camoufox") {
+    return {
+      _meta: {
+        id: f.id,
+        rev: f.rev,
+        proxy_id: f.proxy_id,
+        last_launched_at: null,
+        engine: "camoufox",
+        ...(f.color ? { color: f.color } : {}),
+      },
+      name: f.name || "untitled",
+      notes: f.notes,
+      camoufox: { preset: f.camoufox_preset },
+    };
+  }
   const base: any = lib && lib.payload ? JSON.parse(JSON.stringify(lib.payload)) : {};
 
   base._meta = {
