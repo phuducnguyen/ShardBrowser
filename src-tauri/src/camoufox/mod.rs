@@ -8,6 +8,8 @@
 
 pub mod config;
 pub mod install;
+pub mod run;
+pub mod winclose;
 
 use crate::launch::LaunchOutcome;
 use anyhow::Result;
@@ -32,14 +34,8 @@ pub async fn camoufox_install(window: Window, force: bool) -> Result<install::Ca
     Ok(install::status())
 }
 
-/// Start a Camoufox profile. Not available until the engine can be launched (CF4); until then a
-/// Camoufox profile can be saved but not started.
-pub async fn launch(profile_id: &str, _headless: bool) -> Result<LaunchOutcome> {
-    if !install::status().installed {
-        anyhow::bail!("The Camoufox engine is not installed. Install it from Settings first.");
-    }
-    anyhow::bail!(
-        "Camoufox profiles cannot start yet (profile {profile_id}); launching arrives in the next update."
-    )
+/// Start a Camoufox profile (see `run`).
+pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Result<LaunchOutcome> {
+    run::launch(profile_id, enable_cdp, headless).await
 }
 

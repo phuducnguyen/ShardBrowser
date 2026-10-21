@@ -389,6 +389,22 @@ mod tests {
         assert!(!root.join("evil.txt").exists() || root.join("v1").exists());
     }
 
+    /// Installs the real archive already sitting in the engine folder (downloaded by hand or left
+    /// by an interrupted install). Checks the pinned digest and the layout against the real thing.
+    ///   HEROV_TEST_MANIFEST=1 cargo test --lib real_download -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn real_download_passes_the_pinned_digest_and_unpacks() {
+        let rel = release_for_host().expect("supported system");
+        let root = root().unwrap();
+        let zip = root.join(rel.asset);
+        assert!(zip.exists(), "put {} in {}", rel.asset, root.display());
+        finish_install(&zip, &root, TAG, rel.sha256, rel.size, &|p| println!("phase: {p}")).unwrap();
+        let st = status();
+        println!("installed: {} at {:?}, {} bytes", st.installed, st.binary_path, st.size_bytes.unwrap_or(0));
+        assert!(st.installed);
+    }
+
     #[test]
     fn a_new_install_replaces_an_older_folder_of_the_same_tag() {
         let d = scratch("replace");

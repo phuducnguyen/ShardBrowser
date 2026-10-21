@@ -66,7 +66,7 @@ pub async fn launch_profile_synced(
     }
     // A Camoufox profile has its own engine, data folder and flags; nothing below applies to it.
     if profile::load_raw(profile_id)?.meta.engine == profile::Engine::Camoufox {
-        return crate::camoufox::launch(profile_id, headless).await;
+        return crate::camoufox::launch(profile_id, enable_cdp, headless).await;
     }
     let bin = resolve_binary()?;
     let stored = profile::load_raw(profile_id)?;

@@ -28,6 +28,9 @@ pub struct CdpInfo {
     pub web_socket_debugger_url: String,
 }
 
+/// Asks the browser started as `pid` to close, politely. See `Tracker::track_with`.
+pub type Closer = std::sync::Arc<dyn Fn(u32) + Send + Sync>;
+
 impl Tracker {
     pub fn new() -> Self {
         Self {
@@ -36,7 +39,14 @@ impl Tracker {
     }
 
     /// Take a spawned child + monitor it; entry removed on exit/kill.
-    pub fn track(self: &'static Self, profile_id: String, mut child: Child, temporary: bool) -> u32 {
+    pub fn track(self: &'static Self, profile_id: String, child: Child, temporary: bool) -> u32 {
+        self.track_with(profile_id, child, temporary, None)
+    }
+
+    /// As `track`, with an optional polite-close routine for browsers whose windows belong to
+    /// processes other than the one started (Camoufox on Windows). It is called with the started
+    /// process's id and given longer than the default to finish before the hard kill.
+    pub fn track_with(self: &'static Self, profile_id: String, mut child: Child, temporary: bool, closer: Option<Closer>) -> u32 {
         let pid = child.id().unwrap_or(0);
         let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
 
@@ -75,18 +85,26 @@ impl Tracker {
                     {
                         use std::os::windows::process::CommandExt;
                         if let Some(p) = child.id() {
-                            // taskkill /PID without /F posts WM_CLOSE for clean shutdown.
-                            // 0x08000000 = CREATE_NO_WINDOW — suppress the console flash.
-                            let _ = std::process::Command::new("taskkill")
-                                .args(["/PID", &p.to_string()])
-                                .creation_flags(0x08000000)
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::null())
-                                .status();
+                            if let Some(close) = closer.as_ref() {
+                                // The windows belong to the browser process behind the one we started.
+                                close(p);
+                            } else {
+                                // taskkill /PID without /F posts WM_CLOSE for clean shutdown.
+                                // 0x08000000 = CREATE_NO_WINDOW — suppress the console flash.
+                                let _ = std::process::Command::new("taskkill")
+                                    .args(["/PID", &p.to_string()])
+                                    .creation_flags(0x08000000)
+                                    .stdout(std::process::Stdio::null())
+                                    .stderr(std::process::Stdio::null())
+                                    .status();
+                            }
                         }
                     }
+                    // A browser with its own close routine flushes cookies and session state on
+                    // the way out; give it longer than the default before the hard kill.
+                    let grace = if closer.is_some() { 20 } else { 5 };
                     let graceful = tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
+                        std::time::Duration::from_secs(grace),
                         child.wait(),
                     ).await;
                     if graceful.is_err() {
