@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chips, Icon } from "../../../../shared/ui/hv";
+import { toast } from "../../../../shared/lib/toast";
 import { useT } from "../../../../shared/i18n";
 import { useCamoufox, type CamoufoxOs } from "../../../../entities/camoufox";
 import { EngineChips } from "./EngineChips";
 import { CamoufoxEngineCard } from "../CamoufoxEngineCard";
+import { PhonePicker } from "./PhonePicker";
 import type { TabProps } from "./types";
 
 const OS_LABEL: Record<CamoufoxOs, string> = { windows: "Windows", macos: "macOS", linux: "Linux", android: "Android" };
@@ -18,16 +20,21 @@ export function CamoufoxSection({ f, u, patch }: TabProps) {
   const cur = library.find((d) => d.id === f.camoufox_preset) ?? null;
   const [os, setOs] = useState<CamoufoxOs>(cur?.os ?? "windows");
   const list = useMemo(() => library.filter((d) => d.os === os), [library, os]);
+  const isPhone = os === "android";
 
   // A new profile with no device, or one left over from another OS, gets a random fitting one.
+  // Phones are handled by `PhonePicker`, which has its own filters.
   useEffect(() => {
-    if (!isNew || list.length === 0 || list.some((d) => d.id === f.camoufox_preset)) return;
-    patch({ camoufox_preset: list[Math.floor(Math.random() * list.length)].id });
-  }, [isNew, list, f.camoufox_preset, patch]);
+    if (isPhone || !isNew || list.length === 0 || list.some((d) => d.id === f.camoufox_preset)) return;
+    patch({ camoufox_preset: list[Math.floor(Math.random() * list.length)].id, camoufox_android_version: "" });
+  }, [isPhone, isNew, list, f.camoufox_preset, patch]);
 
   const random = () => {
     if (list.length === 0) return;
-    patch({ camoufox_preset: list[Math.floor(Math.random() * list.length)].id });
+    const pool = list.length > 1 ? list.filter((d) => d.id !== f.camoufox_preset) : list;
+    const d = pool[Math.floor(Math.random() * pool.length)];
+    patch({ camoufox_preset: d.id });
+    toast.info(t("camoufox.pickedRandom", { device: d.label }));
   };
   const firefox = status ? /v?(\d+)/.exec(status.version)?.[1] : null;
 
@@ -52,7 +59,9 @@ export function CamoufoxSection({ f, u, patch }: TabProps) {
         />
       </div>
 
-      <div className="group">
+      {isPhone && <PhonePicker f={f} patch={patch} isNew={isNew} library={library} firefox={firefox} />}
+
+      {!isPhone && <div className="group">
         <div className="dev-row">
           <div className="dev-pick">
             <label className="label" htmlFor="cf-device">{t("deviceSection.deviceLabel")}</label>
@@ -66,9 +75,9 @@ export function CamoufoxSection({ f, u, patch }: TabProps) {
           </button>
         </div>
         <p className="hint tight">{t("deviceSection.count", { n: list.length })}</p>
-      </div>
+      </div>}
 
-      {cur && (
+      {!isPhone && cur && (
         <section className="group" aria-labelledby="cf-see">
           <div className="dev-head">
             <h2 className="sect" id="cf-see">{t("deviceSection.seeTitle")}</h2>

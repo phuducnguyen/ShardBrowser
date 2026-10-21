@@ -202,9 +202,65 @@ fn all_presets() -> &'static Vec<(String, TargetOs, Preset)> {
     })
 }
 
+/// A phone as the picker sees it.
+#[derive(Debug, Clone, Serialize)]
+pub struct PhoneInfo {
+    pub name: String,
+    pub dpr: f64,
+    /// The Android version in the preset's user agent.
+    pub android: u32,
+    /// Versions this phone's GPU class could really run (the preset's own is always inside).
+    pub android_min: u32,
+    pub android_max: u32,
+    pub gpu_vendor: String,
+    /// "high", "mid" or "low", from the GPU.
+    pub tier: &'static str,
+}
+
+/// Phone class from the GPU name: flagship, mid-range or entry-level.
+pub fn phone_tier(renderer: &str) -> &'static str {
+    let digits = |s: &str| s.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<u32>().ok();
+    if let Some(n) = renderer.split("Adreno (TM) ").nth(1).and_then(digits) {
+        return if n < 615 { "low" } else if n < 700 { "mid" } else { "high" };
+    }
+    if let Some(rest) = renderer.strip_prefix("Mali-") {
+        if rest.starts_with('T') {
+            return "low";
+        }
+        if let Some(n) = rest.trim_start_matches('G').split(|c: char| !c.is_ascii_digit()).next().and_then(|x| x.parse::<u32>().ok()) {
+            return if n <= 52 { "low" } else if n <= 78 { "mid" } else { "high" };
+        }
+    }
+    "low"
+}
+
+/// Android versions a phone class could really run.
+fn tier_versions(tier: &str) -> (u32, u32) {
+    match tier {
+        "high" => (13, 16),
+        "mid" => (11, 15),
+        _ => (10, 13),
+    }
+}
+
+/// "Android 14" in a user agent -> 14.
+fn android_version_of(ua: &str) -> Option<u32> {
+    ua.split("Android ").nth(1).and_then(|r| r.split(|c: char| !c.is_ascii_digit()).next()).and_then(|v| v.parse().ok())
+}
+
+/// The versions the picker may offer for a phone preset: its class's range, widened to hold its own.
+pub fn phone_version_range(preset: &Preset) -> Option<(u32, u32)> {
+    let ph = preset.phone.as_ref()?;
+    let own = android_version_of(&preset.navigator.user_agent)?;
+    let (lo, hi) = tier_versions(phone_tier(&ph.gpu_renderer));
+    Some((lo.min(own), hi.max(own)))
+}
+
 /// One recorded device as the interface lists it.
 #[derive(Debug, Clone, Serialize)]
 pub struct LibraryEntry {
+    /// Set for phones: what the picker needs to filter and constrain them.
+    pub phone: Option<PhoneInfo>,
     pub id: String,
     pub os: TargetOs,
     pub label: String,
@@ -252,7 +308,21 @@ pub fn library() -> Vec<LibraryEntry> {
                 .map(short_gpu)
                 .or_else(|| p.phone.as_ref().map(|ph| ph.gpu_renderer.clone()))
                 .unwrap_or_default();
+            let phone = p.phone.as_ref().and_then(|ph| {
+                let own = android_version_of(&p.navigator.user_agent)?;
+                let (lo, hi) = phone_version_range(p)?;
+                Some(PhoneInfo {
+                    name: ph.name.clone(),
+                    dpr: ph.dpr,
+                    android: own,
+                    android_min: lo,
+                    android_max: hi,
+                    gpu_vendor: ph.gpu_vendor.clone(),
+                    tier: phone_tier(&ph.gpu_renderer),
+                })
+            });
             LibraryEntry {
+                phone,
                 id: id.clone(),
                 os: *os,
                 label: match &p.phone {
@@ -287,6 +357,8 @@ pub struct Context<'a> {
     pub proxy_relay_port: Option<u16>,
     /// A phone: touch input and a viewport that scales like a phone's.
     pub mobile: bool,
+    /// The Android version the profile asks for; used only if the phone's class could run it.
+    pub android_version: Option<u32>,
 }
 
 pub fn fnv64(s: &str) -> u64 {
@@ -496,7 +568,12 @@ fn split_locale(tag: &str) -> (String, Option<String>, Option<String>) {
 pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String, Value> {
     let mut c = Map::new();
     let nav = &preset.navigator;
-    let ua = patch_version(&nav.user_agent, FIREFOX_MAJOR);
+    let mut ua = patch_version(&nav.user_agent, FIREFOX_MAJOR);
+    if let (Some(want), Some((lo, hi)), Some(own)) = (ctx.android_version, phone_version_range(preset), android_version_of(&nav.user_agent)) {
+        if (lo..=hi).contains(&want) {
+            ua = ua.replacen(&format!("Android {own}"), &format!("Android {want}"), 1);
+        }
+    }
     c.insert("navigator.userAgent".into(), json!(ua));
     c.insert("navigator.platform".into(), json!(nav.platform));
     if let Some(n) = nav.hardware_concurrency {
@@ -736,7 +813,7 @@ mod tests {
         assert!(known.len() > 100, "known-keys.txt looks empty");
         let c = Context {
             profile_id: "p", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"),
-            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()), proxy_relay_port: Some(1080), mobile: false,
+            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()), proxy_relay_port: Some(1080), mobile: false, android_version: None,
         };
         for e in library() {
             let (p, os) = preset(&e.id).unwrap();
@@ -955,6 +1032,33 @@ mod tests {
         assert_eq!(prefs["dom.w3c_touch_events.enabled"], 1);
         assert_eq!(prefs["ui.primaryPointerCapabilities"], 1);
         assert!(!build_prefs(&ctx("p")).contains_key("dom.w3c_touch_events.enabled"), "desktop profiles keep desktop input");
+    }
+
+    #[test]
+    fn a_phone_class_decides_which_android_versions_are_offered() {
+        assert_eq!(phone_tier("Adreno (TM) 830"), "high");
+        assert_eq!(phone_tier("Adreno (TM) 650"), "mid");
+        assert_eq!(phone_tier("Adreno (TM) 506"), "low");
+        assert_eq!(phone_tier("Mali-G710"), "high");
+        assert_eq!(phone_tier("Mali-G77 MC9"), "mid");
+        assert_eq!(phone_tier("Mali-T720"), "low");
+        assert_eq!(phone_tier("PowerVR Rogue GE8320"), "low");
+        for e in library().into_iter().filter(|e| e.os == TargetOs::Android) {
+            let ph = e.phone.as_ref().expect("every phone entry says what it is");
+            assert!(ph.android_min <= ph.android && ph.android <= ph.android_max, "{}: own version outside its range", e.id);
+            assert!(ph.android_min >= 10 && ph.android_max <= 16, "{}", e.id);
+        }
+        // A version the class can run is applied to the user agent and appVersion; others are ignored.
+        let e = library().into_iter().find(|e| e.os == TargetOs::Android && e.phone.as_ref().map(|p| p.tier) == Some("mid")).unwrap();
+        let ph = e.phone.clone().unwrap();
+        let (p, os) = preset(&e.id).unwrap();
+        let ok = ph.android_max;
+        let with = |v| build_config(p, os, &Context { profile_id: "x", android_version: Some(v), ..Default::default() });
+        let c = with(ok);
+        assert!(c["navigator.userAgent"].as_str().unwrap().contains(&format!("Android {ok};")));
+        assert_eq!(c["navigator.appVersion"], format!("5.0 (Android {ok})"));
+        let c = with(ph.android_max + 5);
+        assert!(c["navigator.userAgent"].as_str().unwrap().contains(&format!("Android {};", ph.android)), "out-of-range version must be ignored");
     }
 
     #[test]

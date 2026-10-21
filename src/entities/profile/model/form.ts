@@ -18,6 +18,7 @@ export const defaultForm = (): ProfileForm => ({
   cookies_file: "",
   engine: "chrome",
   camoufox_preset: "",
+  camoufox_android_version: "",
 
   // Empty until snapped to gpusForOs[0] by useEffect.
   gpu_preset_id: "",
@@ -65,6 +66,7 @@ export function fromStored(stored: any): ProfileForm {
   f.android_media = stored?._meta?.android_media === true;
   f.engine = stored?._meta?.engine === "camoufox" ? "camoufox" : "chrome";
   f.camoufox_preset = typeof stored?.camoufox?.preset === "string" ? stored.camoufox.preset : "";
+  f.camoufox_android_version = typeof stored?.camoufox?.android_version === "string" ? stored.camoufox.android_version : "";
   // Empty for legacy profiles; snapped by useEffect.
   f.gpu_preset_id = stored?._meta?.gpu_preset_id ?? "";
   f.user_agent = stored?.navigator?.user_agent ?? f.user_agent;
@@ -121,7 +123,7 @@ export function toStored(f: ProfileForm, lib: FingerprintEntry | null): any {
       },
       name: f.name || "untitled",
       notes: f.notes,
-      camoufox: { preset: f.camoufox_preset },
+      camoufox: { preset: f.camoufox_preset, ...(f.camoufox_android_version ? { android_version: f.camoufox_android_version } : {}) },
     };
   }
   const base: any = lib && lib.payload ? JSON.parse(JSON.stringify(lib.payload)) : {};

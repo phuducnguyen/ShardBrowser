@@ -54,6 +54,9 @@ export type ProfileForm = {
   /// The recorded Firefox device a Camoufox profile wears (an id from the Camoufox library).
   /// Empty until one is picked; unused by Chrome profiles.
   camoufox_preset: string;
+  /// Android version asked for on a Camoufox phone ("" = the phone's own). Applied only if the
+  /// phone's class could run it.
+  camoufox_android_version: string;
 
   gpu_preset_id: string;
   user_agent: string;

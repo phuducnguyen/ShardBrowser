@@ -142,6 +142,7 @@ pub fn plan(profile_id: &str, stored: &StoredProfile, firefox_dir: &Path, headle
         public_ip: place.and_then(|p| p.ip),
         proxy_relay_port: relay_port,
         mobile: preset.phone.is_some(),
+        android_version: stored.config.get("camoufox").and_then(|c| c.get("android_version")).and_then(|v| v.as_str()).and_then(|v| v.parse().ok()),
     };
     let cfg = config::build_config(preset, os, &ctx);
     let prefs = config::build_prefs(&ctx);

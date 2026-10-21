@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /c/Users/pc/orca/ShardBrowser/src/features/manage-profiles/ui/editor && cat > PhonePicker.tsx <<'EOF'\\nimport { useEffect, useMemo, useState } from \\\"react\\\";\\nimport { Chips, Icon } fr...",
+  "error": "Exit code 2\n/usr/bin/bash: -c: line 150: unexpected EOF while looking for matching `''",
+  "timestamp": "2026-10-21T11:16:46.561Z",
+  "retry_count": 1
+}

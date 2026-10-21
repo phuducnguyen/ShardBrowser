@@ -18,3 +18,6 @@ Status 2026-10-21. Owner decisions: real-device capture is **not needed now**; t
 
 ## Tools already in the repo (ignored tests in `src-tauri/src/camoufox/run.rs`)
 `real_window_on_url` opens a URL in a real window (`HEROV_URL`, `HEROV_PRESET`, `HEROV_SECONDS`, `HEROV_CFG_JSON` to override config keys, null removes one); `real_phone_window_reports_a_phone` prints navigator, screen and pointer values from inside the page.
+
+## Done 2026-10-21: the pool is in the picker
+Create profile → Camoufox → Android now shows a segment filter (flagship, mid-range, entry-level) and a GPU family filter, both with counts so a chip never leads to an empty list; a device list grouped by class; an Android version list limited to what that class of phone could run (stored as `camoufox.android_version`, applied to the user agent and `appVersion` only if inside the class range); and a card of what sites will see. A new profile gets a random phone on its own; Random device never repeats the current one; a filter that excludes the current phone moves to one that fits. Every automatic or chosen change raises a toast. Tests: `PhonePicker.test.tsx` (9), Rust `a_phone_class_decides_which_android_versions_are_offered`.
