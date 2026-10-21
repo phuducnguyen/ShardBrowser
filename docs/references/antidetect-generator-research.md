@@ -69,19 +69,40 @@ Findings that changed the code:
 4. The GPU name is not what flags the phone (removing it changed nothing).
 
 Still open on phones:
-- **Software anomaly.** Not the time zone (changing it to `Asia/Ho_Chi_Minh` changed nothing; the Windows and macOS profiles pass with the same zone) and not the font list alone (an empty list and the phone list both fail). A desktop recorded profile passes, so the remaining difference is data that exists only for desktops: a recorded font set. Best guess: the checker compares the font fingerprint with real Firefox-Android devices. Needs a real capture.
+- **Software anomaly.** Not the time zone (changing it to `Asia/Ho_Chi_Minh` changed nothing; the Windows and macOS profiles pass with the same zone) and not the font list alone (an empty list and the phone list both fail). A desktop recorded profile passes, so the remaining difference is data that exists only for desktops: a recorded font set. Best guess: the checker compares the font fingerprint with real Firefox-Android devices. Real-device capture is **not planned** (owner decision 2026-10-21); the font work is tracked in `docs/specs/phone-identity-next.md`.
 - `pointer: coarse` is false and `hover` true. `ui.primaryPointerCapabilities` and `ui.allPointerCapabilities` exist in the engine but have **no effect** on this build (tried as startup prefs and in `user.js`, values 1 to 4, single-process too). Probably needs an engine patch; not yet seen as a flag.
-- WebGL parameters behind a phone GPU name are the engine's own (no phone recordings anywhere public).
+- WebGL parameters behind a phone GPU name are the engine's own (no phone recordings anywhere public); CreepJS marks the WebGL hash red (a lie) for phones.
 
 ## 5. Plan for the generator
 
 1. **Phone registry v2** built from the Apify data (Firefox-on-Android rows first, Chrome rows as the pool of plausible screens and GPUs), filtered of the noise above. Fields: screen, pixel ratio, outer height (screen minus system bars), GPU name, cores, platform string. Keep ManyFaces tuples only where they agree with real captures.
-2. **Capture page for real phones** (LAN page, one visit per model): WebGL parameters and extensions, shader precision, canvas and audio probes, fonts, `matchMedia` pointer values, screen and window sizes. Output in the same JSON shape as `webgl-devices.json`. This fixes both the WebGL gap and the font question. Needs 3 to 5 Android models from the owner.
-3. **Coherence checks in the generator** (all testable without a browser): outer ≤ screen; touch points match device class; platform and oscpu match the user agent family; renderer string style matches the browser (`, or similar` for Firefox Android, `ANGLE (...)` for Chrome Android); fonts match the OS family; pixel ratio is a value seen for that screen.
-4. **Scanbrowser regression run** for one profile per OS family after any generator change; record the four verdicts in this file.
-5. iPhone: GPU `Apple GPU`, 4 cores, Safari user agent. Camoufox is Firefox, so it cannot match Safari's JavaScript surface; an iPhone profile must show the limitation notice already planned in MP3.
+2. **Coherence checks in the generator** (all testable without a browser): outer ≤ screen; touch points match device class; platform and oscpu match the user agent family; renderer string style matches the browser (`, or similar` for Firefox Android, `ANGLE (...)` for Chrome Android); fonts match the OS family; pixel ratio is a value seen for that screen.
+3. **Scanbrowser regression run** for one profile per OS family after any generator change; record the four verdicts in this file.
+4. iPhone: GPU `Apple GPU`, 4 cores, Safari user agent. Camoufox is Firefox, so it cannot match Safari's JavaScript surface; an iPhone profile must show the limitation notice already planned in MP3.
 
 ## 6. Not done / not verified
 - The two Firefox-Android rows in the dataset are only two browsers' worth of data; ratios there are weak.
 - No access to scanbrowser's rules; its page and API are obfuscated, so only black-box verdicts are used (no replay of its requests).
 - WebGPU surface on phone profiles untested.
+
+## 7. Phone pool rebuilt from the Apify data (2026-10-21)
+
+`tools/camoufox/extract-phones.py` reads the Apify network and writes the `generated` list in `phones.json`.
+- Kept: Android screens with width 340 to 460, aspect 1.6 to 2.4, pixel ratio of at least 1.75, seen often enough (34 of 81); GPUs that are phone GPUs (Adreno, Mali, PowerVR, 52 of them), written the way Firefox prints them (Chrome's `ANGLE (ARM, Mali-G51, OpenGL ES 3.2)` becomes `Mali-G51`).
+- Dropped as noise: desktop GPUs (Intel, AMD), SwiftShader, Android emulator and Windows subsystem translators, Samsung Xclipse in ANGLE form, old PowerVR SGX, 1905×896 and other landscape or tablet screens, pixel ratio 1, 320×480.
+- Pairing: the source keeps screens and GPUs independent per user agent, so each GPU gets a tier (low, mid, high) and an Android version range (10 to 13, 11 to 15, 13 to 16), and a screen only takes GPUs whose tier fits its pixel ratio. Per screen: the most common GPU plus two others picked by a stable hash.
+- Result: 12 named phones + 102 generated = 114 phones, 34 screens, 43 GPUs. Same ids on every run (list is a checked-in file).
+
+## 8. CreepJS on a generated phone (Firefox 158, Android 11, Mali-G77 MC9, 360×800)
+
+| Section | Result |
+|---|---|
+| Headless / stealth | Chromium false, 0% headless, 0% stealth, 13% "like headless" |
+| Device, UA, navigator | Android Linux armv81, cores 8, touch 5, UA parsed as Firefox 158; consistent |
+| GPU | Mali-G77 MC9, confidence high |
+| Screen | 360×800, touch true, viewport 360 portrait, outer = screen |
+| Fonts | Roboto and Noto Color Emoji found (plausible for Android) |
+| **Speech** | **Leak found and fixed:** 6 local Windows voices (Windows logo) showed next to the Android user agent. Phones now declare no voices; CreepJS shows "blocked". |
+| WebGL | hash shown red = lies (parameters are the engine's own) |
+| Audio | part of the sum is red (noise injection), not yet compared with a Windows profile |
+| Trust score and lie count | not captured (the page's top could not be reached by scrolling) |

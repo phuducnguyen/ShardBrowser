@@ -145,10 +145,12 @@ const PHONES_JSON: &str = include_str!("data/phones.json");
 /// The Android phones of `data/phones.json` as presets (Firefox for Android's user agent).
 fn android_presets() -> Vec<Preset> {
     let root: Value = serde_json::from_str(PHONES_JSON).expect("bundled phones parse");
-    root["android"]
-        .as_array()
-        .expect("android array")
+    // The named phones first, then the generated ones (ids follow this order, so it must not change).
+    let named = root["android"].as_array().expect("android array");
+    let generated = root["generated"].as_array().map(|a| a.as_slice()).unwrap_or(&[]);
+    named
         .iter()
+        .chain(generated.iter())
         .map(|d| {
             let (w, h) = (d["width"].as_u64().unwrap_or(360) as u32, d["height"].as_u64().unwrap_or(780) as u32);
             let ver = d["version"].as_str().unwrap_or("14");
@@ -550,6 +552,10 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
             c.insert(format!("window.{k}"), json!(v));
         }
         c.insert("navigator.appCodeName".into(), json!("Mozilla"));
+        // No desktop speech voices: on a Windows host the page would otherwise list this
+        // computer's own voices next to an Android user agent.
+        c.insert("voices".into(), json!([]));
+        c.insert("voices:blockIfNotDefined".into(), json!(true));
         // The GPU a phone of this model reports. Parameters stay the engine's own: there is no
         // recording of a real phone's WebGL to take them from.
         c.insert("webGl:vendor".into(), json!(ph.gpu_vendor));
@@ -714,7 +720,8 @@ mod tests {
         assert_eq!(lib.len(), 109 + android_presets().len());
         let count = |os| lib.iter().filter(|e| e.os == os).count();
         assert_eq!((count(TargetOs::Windows), count(TargetOs::Macos), count(TargetOs::Linux)), (67, 25, 17));
-        assert_eq!(count(TargetOs::Android), 12);
+        assert_eq!(count(TargetOs::Android), android_presets().len());
+        assert!(count(TargetOs::Android) > 100, "the phone pool is the named phones plus the generated ones");
         assert!(lib.iter().all(|e| !is_software_gpu(&e.gpu)), "a software rasteriser must not be offered");
         // A profile that already names one of the four still resolves it.
         assert!(all_presets().iter().any(|(id, _, p)| preset_is_software(p) && preset(id).is_some()));
@@ -917,7 +924,7 @@ mod tests {
     #[test]
     fn a_phone_is_coherent_from_user_agent_to_screen_and_prefs() {
         let phones: Vec<_> = library().into_iter().filter(|e| e.os == TargetOs::Android).collect();
-        assert_eq!(phones.len(), 12);
+        assert_eq!(phones.len(), android_presets().len());
         for e in phones {
             let (p, os) = preset(&e.id).unwrap();
             let ph = p.phone.as_ref().expect("a phone preset carries its model");
@@ -929,6 +936,8 @@ mod tests {
             assert_eq!(c["navigator.oscpu"], "Linux armv81");
             assert!(c["navigator.appVersion"].as_str().unwrap().starts_with("5.0 (Android "));
             assert_eq!(c["navigator.maxTouchPoints"], 5);
+            assert_eq!(c["voices"], json!([]), "the host's own voices must not show on a phone");
+            assert_eq!(c["voices:blockIfNotDefined"], true);
             assert_eq!(c["window.devicePixelRatio"], ph.dpr);
             // The window fills the screen, and the screen is the phone's CSS size.
             for (a, b) in [("screen.width", "window.innerWidth"), ("screen.width", "window.outerWidth"), ("screen.height", "window.innerHeight"), ("screen.height", "window.outerHeight"), ("screen.width", "screen.availWidth"), ("screen.height", "screen.availHeight")] {

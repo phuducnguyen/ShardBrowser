@@ -1,5 +1,5 @@
 {
- "source": "Device tuples from ManyFaces antidetect/fingerprint.py _ANDROID_DEVICES; fonts from _ANDROID_FONTS.",
+ "source": "Named phones: tuples from ManyFaces antidetect/fingerprint.py. Generated: Apify fingerprint-suite network definition (Apache-2.0), filtered and paired by tools/camoufox/extract-phones.py.",
  "android": [
   {
    "name": "Google Pixel 6",
@@ -132,5 +132,1027 @@
   "Noto Color Emoji",
   "Droid Sans",
   "Droid Sans Mono"
+ ],
+ "generated": [
+  {
+   "name": "Adreno 650 · ×2.8125",
+   "width": 384,
+   "height": 854,
+   "dpr": 2.8125,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G710 · ×2.8125",
+   "width": 384,
+   "height": 854,
+   "dpr": 2.8125,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G710",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 MC9 · ×2.8125",
+   "width": 384,
+   "height": 854,
+   "dpr": 2.8125,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77 MC9",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.625",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 710 · ×2.625",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 710",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 MC9 · ×2.625",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77 MC9",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 360,
+   "height": 800,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 810 · ×3",
+   "width": 360,
+   "height": 800,
+   "dpr": 3,
+   "version": "16",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 810",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 MC9 · ×3",
+   "width": 360,
+   "height": 800,
+   "dpr": 3,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77 MC9",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.75",
+   "width": 393,
+   "height": 895,
+   "dpr": 2.75,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G72 · ×2.75",
+   "width": 393,
+   "height": 895,
+   "dpr": 2.75,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G72",
+   "cores": 8
+  },
+  {
+   "name": "PowerVR B-Series BXM-8-256 · ×2.75",
+   "width": 393,
+   "height": 895,
+   "dpr": 2.75,
+   "version": "13",
+   "gpuVendor": "Imagination Technologies",
+   "gpuRenderer": "PowerVR B-Series BXM-8-256",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.75",
+   "width": 393,
+   "height": 851,
+   "dpr": 2.75,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G68 MC4 · ×2.75",
+   "width": 393,
+   "height": 851,
+   "dpr": 2.75,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G68 MC4",
+   "cores": 8
+  },
+  {
+   "name": "Mali-T720 · ×2.75",
+   "width": 393,
+   "height": 851,
+   "dpr": 2.75,
+   "version": "10",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-T720",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 360,
+   "height": 640,
+   "dpr": 3,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G615 MC5 · ×3",
+   "width": 360,
+   "height": 640,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G615 MC5",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 829 · ×3",
+   "width": 360,
+   "height": 640,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 829",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 830 · ×4",
+   "width": 360,
+   "height": 740,
+   "dpr": 4,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 830",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G610 MC6 · ×4",
+   "width": 360,
+   "height": 740,
+   "dpr": 4,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G610 MC6",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G720 MC7 · ×4",
+   "width": 360,
+   "height": 740,
+   "dpr": 4,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G720 MC7",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3.3125",
+   "width": 370,
+   "height": 816,
+   "dpr": 3.3125,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G610 MC6 · ×3.3125",
+   "width": 370,
+   "height": 816,
+   "dpr": 3.3125,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G610 MC6",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 · ×3.3125",
+   "width": 370,
+   "height": 816,
+   "dpr": 3.3125,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.7273",
+   "width": 396,
+   "height": 880,
+   "dpr": 2.7273,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G78 · ×2.7273",
+   "width": 396,
+   "height": 880,
+   "dpr": 2.7273,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G78",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G57 · ×2.7273",
+   "width": 396,
+   "height": 880,
+   "dpr": 2.7273,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G57",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2",
+   "width": 400,
+   "height": 858,
+   "dpr": 2,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 610 · ×2",
+   "width": 400,
+   "height": 858,
+   "dpr": 2,
+   "version": "10",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 610",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 505 · ×2",
+   "width": 400,
+   "height": 858,
+   "dpr": 2,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 505",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3.5",
+   "width": 362,
+   "height": 782,
+   "dpr": 3.5,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 825 · ×3.5",
+   "width": 362,
+   "height": 782,
+   "dpr": 3.5,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 825",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 · ×3.5",
+   "width": 362,
+   "height": 782,
+   "dpr": 3.5,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2",
+   "width": 360,
+   "height": 760,
+   "dpr": 2,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 613 · ×2",
+   "width": 360,
+   "height": 760,
+   "dpr": 2,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 613",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G51 · ×2",
+   "width": 360,
+   "height": 760,
+   "dpr": 2,
+   "version": "10",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G51",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3.5",
+   "width": 348,
+   "height": 755,
+   "dpr": 3.5,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G78 · ×3.5",
+   "width": 348,
+   "height": 755,
+   "dpr": 3.5,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G78",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 810 · ×3.5",
+   "width": 348,
+   "height": 755,
+   "dpr": 3.5,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 810",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.625",
+   "width": 412,
+   "height": 938,
+   "dpr": 2.625,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-T760 · ×2.625",
+   "width": 412,
+   "height": 938,
+   "dpr": 2.625,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-T760",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G615 MC6 · ×2.625",
+   "width": 412,
+   "height": 938,
+   "dpr": 2.625,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G615 MC6",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 830 · ×3.75",
+   "width": 384,
+   "height": 832,
+   "dpr": 3.75,
+   "version": "16",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 830",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G720 MC8 · ×3.75",
+   "width": 384,
+   "height": 832,
+   "dpr": 3.75,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G720 MC8",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 735 · ×3.75",
+   "width": 384,
+   "height": 832,
+   "dpr": 3.75,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 735",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2",
+   "width": 360,
+   "height": 640,
+   "dpr": 2,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G51 · ×2",
+   "width": 360,
+   "height": 640,
+   "dpr": 2,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G51",
+   "cores": 8
+  },
+  {
+   "name": "Mali-T720 · ×2",
+   "width": 360,
+   "height": 640,
+   "dpr": 2,
+   "version": "12",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-T720",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.75",
+   "width": 393,
+   "height": 873,
+   "dpr": 2.75,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G57 MC2 · ×2.75",
+   "width": 393,
+   "height": 873,
+   "dpr": 2.75,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G57 MC2",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G68 · ×2.75",
+   "width": 393,
+   "height": 873,
+   "dpr": 2.75,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G68",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 360,
+   "height": 791,
+   "dpr": 3,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G77 · ×3",
+   "width": 360,
+   "height": 791,
+   "dpr": 3,
+   "version": "12",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G77",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 825 · ×3",
+   "width": 360,
+   "height": 791,
+   "dpr": 3,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 825",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3.25",
+   "width": 377,
+   "height": 831,
+   "dpr": 3.25,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G71 · ×3.25",
+   "width": 377,
+   "height": 831,
+   "dpr": 3.25,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G71",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G610 MC4 · ×3.25",
+   "width": 377,
+   "height": 831,
+   "dpr": 3.25,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G610 MC4",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 360,
+   "height": 840,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G610 MC4 · ×3",
+   "width": 360,
+   "height": 840,
+   "dpr": 3,
+   "version": "16",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G610 MC4",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G76 MC4 · ×3",
+   "width": 360,
+   "height": 840,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G76 MC4",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.8571",
+   "width": 378,
+   "height": 811,
+   "dpr": 2.8571,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G720 MC8 · ×2.8571",
+   "width": 378,
+   "height": 811,
+   "dpr": 2.8571,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G720 MC8",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 630 · ×2.8571",
+   "width": 378,
+   "height": 811,
+   "dpr": 2.8571,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 630",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 420,
+   "height": 933,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 710 · ×3",
+   "width": 420,
+   "height": 933,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 710",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 840 · ×3",
+   "width": 420,
+   "height": 933,
+   "dpr": 3,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 840",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.5",
+   "width": 432,
+   "height": 960,
+   "dpr": 2.5,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G57 MC2 · ×2.5",
+   "width": 432,
+   "height": 960,
+   "dpr": 2.5,
+   "version": "11",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G57 MC2",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 619 · ×2.5",
+   "width": 432,
+   "height": 960,
+   "dpr": 2.5,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 619",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2",
+   "width": 360,
+   "height": 772,
+   "dpr": 2,
+   "version": "10",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G51 · ×2",
+   "width": 360,
+   "height": 772,
+   "dpr": 2,
+   "version": "12",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G51",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 613 · ×2",
+   "width": 360,
+   "height": 772,
+   "dpr": 2,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 613",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.75",
+   "width": 393,
+   "height": 817,
+   "dpr": 2.75,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "PowerVR Rogue GM9446 · ×2.75",
+   "width": 393,
+   "height": 817,
+   "dpr": 2.75,
+   "version": "12",
+   "gpuVendor": "Imagination Technologies",
+   "gpuRenderer": "PowerVR Rogue GM9446",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 730 · ×2.75",
+   "width": 393,
+   "height": 817,
+   "dpr": 2.75,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 730",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.7273",
+   "width": 396,
+   "height": 881,
+   "dpr": 2.7273,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G720 MC8 · ×2.7273",
+   "width": 396,
+   "height": 881,
+   "dpr": 2.7273,
+   "version": "13",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G720 MC8",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G715-Immortalis MC11 · ×2.7273",
+   "width": 396,
+   "height": 881,
+   "dpr": 2.7273,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G715-Immortalis MC11",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.6087",
+   "width": 414,
+   "height": 897,
+   "dpr": 2.6087,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 840 · ×2.6087",
+   "width": 414,
+   "height": 897,
+   "dpr": 2.6087,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 840",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G715 · ×2.6087",
+   "width": 414,
+   "height": 897,
+   "dpr": 2.6087,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G715",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.625",
+   "width": 412,
+   "height": 892,
+   "dpr": 2.625,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 720 · ×2.625",
+   "width": 412,
+   "height": 892,
+   "dpr": 2.625,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 720",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G610 MC4 · ×2.625",
+   "width": 412,
+   "height": 892,
+   "dpr": 2.625,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G610 MC4",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×2.8125",
+   "width": 384,
+   "height": 832,
+   "dpr": 2.8125,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G71 · ×2.8125",
+   "width": 384,
+   "height": 832,
+   "dpr": 2.8125,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G71",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G710 · ×2.8125",
+   "width": 384,
+   "height": 832,
+   "dpr": 2.8125,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G710",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2",
+   "width": 360,
+   "height": 800,
+   "dpr": 2,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G52 MC2 · ×2",
+   "width": 360,
+   "height": 800,
+   "dpr": 2,
+   "version": "10",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G52 MC2",
+   "cores": 8
+  },
+  {
+   "name": "Mali-T760 · ×2",
+   "width": 360,
+   "height": 800,
+   "dpr": 2,
+   "version": "10",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-T760",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 407,
+   "height": 904,
+   "dpr": 3,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 710 · ×3",
+   "width": 407,
+   "height": 904,
+   "dpr": 3,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 710",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G57 MC2 · ×3",
+   "width": 407,
+   "height": 904,
+   "dpr": 3,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G57 MC2",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 506 · ×2.25",
+   "width": 448,
+   "height": 998,
+   "dpr": 2.25,
+   "version": "12",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 506",
+   "cores": 8
+  },
+  {
+   "name": "PowerVR B-Series BXM-8-256 · ×2.25",
+   "width": 448,
+   "height": 998,
+   "dpr": 2.25,
+   "version": "10",
+   "gpuVendor": "Imagination Technologies",
+   "gpuRenderer": "PowerVR B-Series BXM-8-256",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 610 · ×2.25",
+   "width": 448,
+   "height": 998,
+   "dpr": 2.25,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 610",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3.25",
+   "width": 376,
+   "height": 835,
+   "dpr": 3.25,
+   "version": "11",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G710 · ×3.25",
+   "width": 376,
+   "height": 835,
+   "dpr": 3.25,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G710",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 630 · ×3.25",
+   "width": 376,
+   "height": 835,
+   "dpr": 3.25,
+   "version": "15",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 630",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 650 · ×3",
+   "width": 360,
+   "height": 780,
+   "dpr": 3,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 650",
+   "cores": 8
+  },
+  {
+   "name": "Adreno 750 · ×3",
+   "width": 360,
+   "height": 780,
+   "dpr": 3,
+   "version": "13",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 750",
+   "cores": 8
+  },
+  {
+   "name": "Mali-G615 MC2 · ×3",
+   "width": 360,
+   "height": 780,
+   "dpr": 3,
+   "version": "16",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G615 MC2",
+   "cores": 8
+  }
  ]
 }
