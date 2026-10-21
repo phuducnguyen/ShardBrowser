@@ -55,3 +55,17 @@ Status: **draft 1, awaiting owner decisions (section 5)** · 2026-10-21 · Input
 Known limit to keep in view: on a Windows PC any phone profile still reports **the PC's real graphics card** through WebGL (Camoufox) or invented parameters (Chrome engine, flagged by CreepJS). Only a real emulator or a real device removes that; the registry cannot.
 
 Decisions for the owner: (1) install REA or not (recommended: no); (2) start with MP1 to MP3 on Camoufox, then MP4; (3) whether MP6 is wanted at all this quarter.
+
+## MP1 status (2026-10-21): identity built, checker verdict not yet clean
+
+Built: 12 Android phones (`src-tauri/src/camoufox/data/phones.json`, tuples from the ManyFaces reference) as `cf-and-N` presets next to the desktop ones; user agent, `Linux armv8l`, 5 touch points, CSS-pixel portrait screen, pixel ratio, phone-sized window, phone font list, the model's GPU name, touch prefs. Rust tests: 45 pass (coherence of every phone, every key known to the pinned Camoufox).
+
+Checked on the real engine (non-headless window): user agent, platform, `ontouchstart`, `maxTouchPoints` 5, pixel ratio 2.625, screen and inner size 412×915, a responsive layout on scanbrowser.net.
+
+**scanbrowser.net on a phone profile:** Browser normal, Network normal, **Software: anomaly, Hardware: anomaly**, headline "not trustworthy". The same site on a Windows profile: Hardware and Network normal. The exact rows that trip it are not shown by the site's summary; candidates:
+- `pointer: coarse` is **false** and `hover: hover` is true; the `ui.primaryPointerCapabilities` pref has no effect on this build (also tried through `user.js`);
+- WebGL 1.0 only is reported, `deviceMemory` is empty;
+- the GPU name is a phone's but the parameters behind it are the engine's own (no real phone recording exists);
+- phone font list gives a fingerprint of its own and the page text renders in an odd fallback font.
+
+Next: isolate each candidate one at a time against scanbrowser, starting with pointer capability (needs a different mechanism than the pref) and WebGL.

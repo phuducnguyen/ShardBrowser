@@ -6,7 +6,7 @@ import { EngineChips } from "./EngineChips";
 import { CamoufoxEngineCard } from "../CamoufoxEngineCard";
 import type { TabProps } from "./types";
 
-const OS_LABEL: Record<CamoufoxOs, string> = { windows: "Windows", macos: "macOS", linux: "Linux" };
+const OS_LABEL: Record<CamoufoxOs, string> = { windows: "Windows", macos: "macOS", linux: "Linux", android: "Android" };
 
 /// Create profile for the Camoufox engine: the OS, a recorded Firefox device, and what a site will
 /// see of it. The identity itself is built from the Camoufox library when the profile starts.
@@ -47,7 +47,7 @@ export function CamoufoxSection({ f, u, patch }: TabProps) {
           name="camoufox-os"
           label={t("inlineEditor.osLabel")}
           value={os}
-          options={(["windows", "macos", "linux"] as CamoufoxOs[]).map((o) => ({ value: o, label: OS_LABEL[o], disabled: !isNew }))}
+          options={(["windows", "macos", "linux", "android"] as CamoufoxOs[]).map((o) => ({ value: o, label: OS_LABEL[o], disabled: !isNew }))}
           onChange={setOs}
         />
       </div>
@@ -75,7 +75,7 @@ export function CamoufoxSection({ f, u, patch }: TabProps) {
             <span className="chip-plain">{t("deviceSection.locked")}</span>
           </div>
           <dl className="dev-card">
-            <div><dt>{t("deviceSection.platform")}</dt><dd>{OS_LABEL[cur.os]} · {t("deviceSection.kindDesktop")}</dd></div>
+            <div><dt>{t("deviceSection.platform")}</dt><dd>{OS_LABEL[cur.os]} · {cur.os === "android" ? t("deviceSection.kindPhone") : t("deviceSection.kindDesktop")}</dd></div>
             <div><dt>{t("deviceSection.browser")}</dt><dd>{firefox ? `Firefox ${firefox}` : "Firefox"}</dd></div>
             <div><dt>{t("deviceSection.screen")}</dt><dd>{cur.screen[0]}×{cur.screen[1]}</dd></div>
             <div><dt>{t("deviceSection.cores")}</dt><dd>{cur.cores ?? "—"}</dd></div>

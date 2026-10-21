@@ -1,0 +1,136 @@
+{
+ "source": "Device tuples from ManyFaces antidetect/fingerprint.py _ANDROID_DEVICES; fonts from _ANDROID_FONTS.",
+ "android": [
+  {
+   "name": "Google Pixel 6",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G78",
+   "cores": 8
+  },
+  {
+   "name": "Google Pixel 7",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G710",
+   "cores": 8
+  },
+  {
+   "name": "Google Pixel 8",
+   "width": 412,
+   "height": 915,
+   "dpr": 2.625,
+   "version": "14",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G715",
+   "cores": 9
+  },
+  {
+   "name": "Google Pixel 9",
+   "width": 412,
+   "height": 923,
+   "dpr": 2.625,
+   "version": "15",
+   "gpuVendor": "ARM",
+   "gpuRenderer": "Mali-G715",
+   "cores": 8
+  },
+  {
+   "name": "Samsung Galaxy S21",
+   "width": 360,
+   "height": 800,
+   "dpr": 3.0,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 660",
+   "cores": 8
+  },
+  {
+   "name": "Samsung Galaxy S22",
+   "width": 360,
+   "height": 780,
+   "dpr": 3.0,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 730",
+   "cores": 8
+  },
+  {
+   "name": "Samsung Galaxy S23",
+   "width": 360,
+   "height": 780,
+   "dpr": 3.0,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 740",
+   "cores": 8
+  },
+  {
+   "name": "Samsung Galaxy S24",
+   "width": 384,
+   "height": 832,
+   "dpr": 2.8125,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 750",
+   "cores": 8
+  },
+  {
+   "name": "OnePlus 11",
+   "width": 412,
+   "height": 919,
+   "dpr": 3.5,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 740",
+   "cores": 8
+  },
+  {
+   "name": "OnePlus 12",
+   "width": 412,
+   "height": 919,
+   "dpr": 3.5,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 750",
+   "cores": 8
+  },
+  {
+   "name": "Xiaomi 13",
+   "width": 393,
+   "height": 873,
+   "dpr": 3.0,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 740",
+   "cores": 8
+  },
+  {
+   "name": "Xiaomi 14",
+   "width": 393,
+   "height": 873,
+   "dpr": 3.0,
+   "version": "14",
+   "gpuVendor": "Qualcomm",
+   "gpuRenderer": "Adreno (TM) 750",
+   "cores": 8
+  }
+ ],
+ "androidFonts": [
+  "Roboto",
+  "Roboto Condensed",
+  "Roboto Mono",
+  "Noto Sans",
+  "Noto Serif",
+  "Noto Sans Mono",
+  "Noto Color Emoji",
+  "Droid Sans",
+  "Droid Sans Mono"
+ ]
+}

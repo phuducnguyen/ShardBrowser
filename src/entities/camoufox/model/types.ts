@@ -11,7 +11,7 @@ export type CamoufoxStatus = {
   download_bytes: number | null;
 };
 
-export type CamoufoxOs = "windows" | "macos" | "linux";
+export type CamoufoxOs = "windows" | "macos" | "linux" | "android";
 
 /** One recorded Firefox device a Camoufox profile can wear. */
 export type CamoufoxDevice = {

@@ -34,6 +34,8 @@ pub enum TargetOs {
     Windows,
     Macos,
     Linux,
+    /// A phone on Firefox for Android's terms (touch, CSS-pixel screen, phone fonts).
+    Android,
 }
 
 impl TargetOs {
@@ -53,6 +55,7 @@ impl TargetOs {
             TargetOs::Windows => "windows",
             TargetOs::Macos => "macos",
             TargetOs::Linux => "linux",
+            TargetOs::Android => "android",
         }
     }
 
@@ -61,6 +64,7 @@ impl TargetOs {
             TargetOs::Windows => "win",
             TargetOs::Macos => "mac",
             TargetOs::Linux => "lin",
+            TargetOs::Android => "and",
         }
     }
 
@@ -69,6 +73,7 @@ impl TargetOs {
             TargetOs::Windows => "Windows",
             TargetOs::Macos => "macOS",
             TargetOs::Linux => "Linux",
+            TargetOs::Android => "Android",
         }
     }
 }
@@ -100,8 +105,19 @@ pub struct WebglSpec {
     pub unmasked_renderer: Option<String>,
 }
 
+/// What a phone adds to a preset: its pixel ratio and the GPU a phone of that model reports.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Phone {
+    pub name: String,
+    pub dpr: f64,
+    pub gpu_vendor: String,
+    pub gpu_renderer: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preset {
+    #[serde(default)]
+    pub phone: Option<Phone>,
     pub navigator: Nav,
     pub screen: ScreenSpec,
     #[serde(default)]
@@ -124,6 +140,44 @@ struct PresetGroups {
 
 const PRESETS_JSON: &str = include_str!("data/fingerprint-presets.json");
 const FONT_BASES_JSON: &str = include_str!("data/font-bases.json");
+const PHONES_JSON: &str = include_str!("data/phones.json");
+
+/// The Android phones of `data/phones.json` as presets (Firefox for Android's user agent).
+fn android_presets() -> Vec<Preset> {
+    let root: Value = serde_json::from_str(PHONES_JSON).expect("bundled phones parse");
+    root["android"]
+        .as_array()
+        .expect("android array")
+        .iter()
+        .map(|d| {
+            let (w, h) = (d["width"].as_u64().unwrap_or(360) as u32, d["height"].as_u64().unwrap_or(780) as u32);
+            let ver = d["version"].as_str().unwrap_or("14");
+            Preset {
+                phone: Some(Phone {
+                    name: d["name"].as_str().unwrap_or_default().to_string(),
+                    dpr: d["dpr"].as_f64().unwrap_or(2.0),
+                    gpu_vendor: d["gpuVendor"].as_str().unwrap_or_default().to_string(),
+                    gpu_renderer: d["gpuRenderer"].as_str().unwrap_or_default().to_string(),
+                }),
+                navigator: Nav {
+                    user_agent: format!("Mozilla/5.0 (Android {ver}; Mobile; rv:{FIREFOX_MAJOR}.0) Gecko/{FIREFOX_MAJOR}.0 Firefox/{FIREFOX_MAJOR}.0"),
+                    platform: "Linux armv8l".into(),
+                    hardware_concurrency: d["cores"].as_u64().map(|c| c as u32),
+                    max_touch_points: Some(5),
+                    oscpu: Some("Linux armv8l".into()),
+                },
+                screen: ScreenSpec { width: w, height: h, color_depth: Some(24), avail_width: Some(w), avail_height: Some(h) },
+                webgl: None,
+                speech_voices: Vec::new(),
+            }
+        })
+        .collect()
+}
+
+fn android_fonts() -> Vec<String> {
+    let root: Value = serde_json::from_str(PHONES_JSON).expect("bundled phones parse");
+    root["androidFonts"].as_array().map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default()
+}
 
 fn all_presets() -> &'static Vec<(String, TargetOs, Preset)> {
     static CELL: OnceLock<Vec<(String, TargetOs, Preset)>> = OnceLock::new();
@@ -138,6 +192,9 @@ fn all_presets() -> &'static Vec<(String, TargetOs, Preset)> {
             for (i, p) in list.into_iter().enumerate() {
                 out.push((format!("cf-{}-{i}", os.short()), os, p));
             }
+        }
+        for (i, p) in android_presets().into_iter().enumerate() {
+            out.push((format!("cf-{}-{i}", TargetOs::Android.short()), TargetOs::Android, p));
         }
         out
     })
@@ -191,11 +248,15 @@ pub fn library() -> Vec<LibraryEntry> {
                 .as_ref()
                 .and_then(|w| w.unmasked_renderer.as_deref())
                 .map(short_gpu)
+                .or_else(|| p.phone.as_ref().map(|ph| ph.gpu_renderer.clone()))
                 .unwrap_or_default();
             LibraryEntry {
                 id: id.clone(),
                 os: *os,
-                label: format!("{} · {}×{} · {}", os.label(), p.screen.width, p.screen.height, if gpu.is_empty() { "unknown GPU" } else { &gpu }),
+                label: match &p.phone {
+                    Some(ph) => format!("{} · {} · {}×{}", os.label(), ph.name, p.screen.width, p.screen.height),
+                    None => format!("{} · {}×{} · {}", os.label(), p.screen.width, p.screen.height, if gpu.is_empty() { "unknown GPU" } else { &gpu }),
+                },
                 screen: (p.screen.width, p.screen.height),
                 cores: p.navigator.hardware_concurrency,
                 gpu,
@@ -222,6 +283,8 @@ pub struct Context<'a> {
     pub public_ip: Option<IpAddr>,
     /// Port of the local relay in front of the profile's proxy; `None` means no proxy.
     pub proxy_relay_port: Option<u16>,
+    /// A phone: touch input and a viewport that scales like a phone's.
+    pub mobile: bool,
 }
 
 pub fn fnv64(s: &str) -> u64 {
@@ -270,6 +333,7 @@ fn oscpu_for(platform: &str, os: TargetOs) -> Option<&'static str> {
         TargetOs::Windows => Some("Windows NT 10.0; Win64; x64"),
         TargetOs::Linux => Some("Linux x86_64"),
         TargetOs::Macos => None,
+        TargetOs::Android => Some("Linux armv8l"),
     }
 }
 
@@ -293,6 +357,7 @@ fn voice_uri(os: TargetOs, name: &str, lang: &str) -> String {
             format!("urn:moz-tts:speechd:{esc}?{lang}")
         }
         // Approximate: the real identifiers come from a catalogue of stock macOS that is not bundled.
+        TargetOs::Android => format!("urn:moz-tts:android:{name}?{lang}"),
         TargetOs::Macos => {
             let ascii: String = name.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
             format!("urn:moz-tts:osx:com.apple.voice.compact.{lang}.{ascii}")
@@ -474,7 +539,24 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
         }
     }
 
-    let fonts = font_base(os, ctx.profile_id);
+    if let Some(ph) = &preset.phone {
+        // A phone's screen is its CSS size and the window fills it; Camoufox is not asked to make
+        // room for desktop window chrome.
+        for k in ["screen.availTop", "screen.availLeft", "window.screenX", "window.screenY"] {
+            c.insert(k.into(), json!(0));
+        }
+        c.insert("window.devicePixelRatio".into(), json!(ph.dpr));
+        for (k, v) in [("innerWidth", s.width), ("outerWidth", s.width), ("innerHeight", s.height), ("outerHeight", s.height)] {
+            c.insert(format!("window.{k}"), json!(v));
+        }
+        c.insert("navigator.appCodeName".into(), json!("Mozilla"));
+        // The GPU a phone of this model reports. Parameters stay the engine's own: there is no
+        // recording of a real phone's WebGL to take them from.
+        c.insert("webGl:vendor".into(), json!(ph.gpu_vendor));
+        c.insert("webGl:renderer".into(), json!(ph.gpu_renderer));
+    }
+
+    let fonts = if os == TargetOs::Android { android_fonts() } else { font_base(os, ctx.profile_id) };
     if !fonts.is_empty() {
         c.insert("fonts".into(), json!(fonts));
     }
@@ -533,6 +615,14 @@ pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
     p.insert("intl.locale.requested".into(), json!(if requested.is_empty() { "en-US".to_string() } else { requested }));
     p.insert("privacy.donottrackheader.enabled".into(), json!(false));
     p.insert("privacy.globalprivacycontrol.enabled".into(), json!(false));
+    if ctx.mobile {
+        p.insert("dom.w3c_touch_events.enabled".into(), json!(1));
+        p.insert("dom.w3c_touch_events.legacy_apis.enabled".into(), json!(true));
+        p.insert("dom.meta-viewport.enabled".into(), json!(true));
+        p.insert("apz.allow_zooming".into(), json!(true));
+        p.insert("ui.primaryPointerCapabilities".into(), json!(1));
+        p.insert("ui.allPointerCapabilities".into(), json!(1));
+    }
     if ctx.geolocation.is_some() {
         // A position handed out without a prompt must also read as "granted" through the Permissions API.
         p.insert("permissions.default.geo".into(), json!(1));
@@ -611,11 +701,12 @@ mod tests {
     #[test]
     fn the_library_offers_the_recorded_devices_that_have_a_real_gpu() {
         // 113 are recorded; the 4 that use Microsoft's software renderer are not offered.
-        assert_eq!(all_presets().len(), 113);
+        assert_eq!(all_presets().len(), 113 + android_presets().len());
         let lib = library();
-        assert_eq!(lib.len(), 109);
+        assert_eq!(lib.len(), 109 + android_presets().len());
         let count = |os| lib.iter().filter(|e| e.os == os).count();
         assert_eq!((count(TargetOs::Windows), count(TargetOs::Macos), count(TargetOs::Linux)), (67, 25, 17));
+        assert_eq!(count(TargetOs::Android), 12);
         assert!(lib.iter().all(|e| !is_software_gpu(&e.gpu)), "a software rasteriser must not be offered");
         // A profile that already names one of the four still resolves it.
         assert!(all_presets().iter().any(|(id, _, p)| preset_is_software(p) && preset(id).is_some()));
@@ -630,7 +721,7 @@ mod tests {
         assert!(known.len() > 100, "known-keys.txt looks empty");
         let c = Context {
             profile_id: "p", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"),
-            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()), proxy_relay_port: Some(1080),
+            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()), proxy_relay_port: Some(1080), mobile: false,
         };
         for e in library() {
             let (p, os) = preset(&e.id).unwrap();
@@ -678,7 +769,7 @@ mod tests {
     #[test]
     fn every_device_wears_a_complete_recorded_webgl_identity_that_matches_its_os() {
         let known = known();
-        for e in library() {
+        for e in library().into_iter().filter(|e| e.os != TargetOs::Android) {
             let (p, os) = preset(&e.id).unwrap();
             let c = build_config(p, os, &ctx("x"));
             for k in ["webGl:vendor", "webGl:renderer", "webGl:parameters", "webGl:supportedExtensions", "webGl:shaderPrecisionFormats",
@@ -695,6 +786,7 @@ mod tests {
                 TargetOs::Windows => assert!(r.starts_with("ANGLE ("), "{r}"),
                 TargetOs::Macos => assert!(!r.starts_with("ANGLE ("), "{r}"),
                 TargetOs::Linux => assert!(!r.starts_with("ANGLE (Direct3D"), "{r}"),
+                TargetOs::Android => unreachable!(),
             }
             assert!(!is_software_gpu(r), "{r}");
         }
@@ -703,7 +795,8 @@ mod tests {
     #[test]
     fn the_webgl_identity_follows_the_presets_own_gpu_when_it_was_recorded() {
         let mut followed = 0;
-        for e in library() {
+        let desktop: Vec<_> = library().into_iter().filter(|e| e.os != TargetOs::Android).collect();
+        for e in &desktop {
             let (p, os) = preset(&e.id).unwrap();
             let own = p.webgl.as_ref().unwrap();
             let c = build_config(p, os, &ctx("any"));
@@ -712,7 +805,7 @@ mod tests {
                 followed += 1;
             }
         }
-        assert_eq!(followed, library().len(), "every offered preset has a recording behind its own GPU");
+        assert_eq!(followed, desktop.len(), "every offered preset has a recording behind its own GPU");
     }
 
     #[test]
@@ -811,6 +904,40 @@ mod tests {
         assert!(text.is_ascii(), "{text}");
         assert!(text.contains("\\u00e9") && text.contains("\\ud83e\\udd8a"), "{text}");
         assert_eq!(serde_json::from_str::<Value>(&text).unwrap(), v);
+    }
+
+    #[test]
+    fn a_phone_is_coherent_from_user_agent_to_screen_and_prefs() {
+        let phones: Vec<_> = library().into_iter().filter(|e| e.os == TargetOs::Android).collect();
+        assert_eq!(phones.len(), 12);
+        for e in phones {
+            let (p, os) = preset(&e.id).unwrap();
+            let ph = p.phone.as_ref().expect("a phone preset carries its model");
+            let c = build_config(p, os, &ctx("phone-1"));
+            let ua = c["navigator.userAgent"].as_str().unwrap();
+            assert!(ua.starts_with("Mozilla/5.0 (Android ") && ua.contains("; Mobile; rv:158.0)") && ua.ends_with("Firefox/158.0"), "{ua}");
+            assert!(!ua.contains("Windows") && !ua.contains("X11"), "{ua}");
+            assert_eq!(c["navigator.platform"], "Linux armv8l");
+            assert_eq!(c["navigator.oscpu"], "Linux armv8l");
+            assert!(c["navigator.appVersion"].as_str().unwrap().starts_with("5.0 (Android "));
+            assert_eq!(c["navigator.maxTouchPoints"], 5);
+            assert_eq!(c["window.devicePixelRatio"], ph.dpr);
+            // The window fills the screen, and the screen is the phone's CSS size.
+            for (a, b) in [("screen.width", "window.innerWidth"), ("screen.width", "window.outerWidth"), ("screen.height", "window.innerHeight"), ("screen.height", "window.outerHeight"), ("screen.width", "screen.availWidth"), ("screen.height", "screen.availHeight")] {
+                assert_eq!(c[a], c[b], "{} {a} vs {b}", e.id);
+            }
+            assert!(c["screen.width"].as_u64().unwrap() < c["screen.height"].as_u64().unwrap(), "portrait");
+            assert_eq!(c["webGl:renderer"], ph.gpu_renderer.as_str());
+            // Only phone fonts: nothing a desktop would add.
+            let fonts: Vec<_> = c["fonts"].as_array().unwrap().iter().map(|f| f.as_str().unwrap()).collect();
+            assert!(fonts.contains(&"Roboto") && !fonts.contains(&"Arial") && !fonts.contains(&"Segoe UI"), "{fonts:?}");
+            // Same profile, same phone values on every launch.
+            assert_eq!(c, build_config(p, os, &ctx("phone-1")));
+        }
+        let prefs = build_prefs(&Context { profile_id: "p", mobile: true, ..Default::default() });
+        assert_eq!(prefs["dom.w3c_touch_events.enabled"], 1);
+        assert_eq!(prefs["ui.primaryPointerCapabilities"], 1);
+        assert!(!build_prefs(&ctx("p")).contains_key("dom.w3c_touch_events.enabled"), "desktop profiles keep desktop input");
     }
 
     #[test]

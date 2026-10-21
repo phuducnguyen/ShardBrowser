@@ -141,6 +141,7 @@ pub fn plan(profile_id: &str, stored: &StoredProfile, firefox_dir: &Path, headle
         geolocation: place.and_then(|p| p.geolocation),
         public_ip: place.and_then(|p| p.ip),
         proxy_relay_port: relay_port,
+        mobile: preset.phone.is_some(),
     };
     let cfg = config::build_config(preset, os, &ctx);
     let prefs = config::build_prefs(&ctx);
@@ -637,5 +638,109 @@ out.push('  maxTex='+gl.getParameter(gl.MAX_TEXTURE_SIZE)+' maxVertAttribs='+gl.
         let out = cmd.output().expect("run camoufox");
         println!("exit: {:?}\nshot: {}\nstderr: {}", out.status.code(), shot.display(), String::from_utf8_lossy(&out.stderr).lines().take(8).collect::<Vec<_>>().join("\n"));
         assert!(shot.exists(), "no screenshot was written");
+    }
+
+    /// A phone profile seen from a page: touch, pointer type, pixel ratio and viewport. Writes a
+    /// screenshot to read the values from.
+    #[test]
+    #[ignore]
+    fn real_phone_reports_a_phone() {
+        let status = install::status();
+        assert!(status.installed, "install Camoufox first");
+        let bin = status.binary_path.unwrap();
+        let tmp = std::env::temp_dir().join(format!("herov-cf-phone-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(tmp.join("fx")).unwrap();
+        let page = tmp.join("probe.html");
+        std::fs::write(&page, r#"<!doctype html><meta charset=utf-8><body style="font:14px 'Roboto Mono','Noto Sans Mono','Noto Sans';background:#fff;color:#000"><pre id=o></pre><script>
+const n=navigator,s=screen,m=q=>matchMedia(q).matches;
+try{document.getElementById('o').textContent=[
+'UA: '+n.userAgent,'platform: '+n.platform+' oscpu: '+n.oscpu,'appVersion: '+n.appVersion,
+'touchPoints: '+n.maxTouchPoints+' ontouchstart: '+('ontouchstart' in window)+' TouchEvent: '+(typeof TouchEvent),
+'pointer coarse: '+m('(pointer: coarse)')+' fine: '+m('(pointer: fine)')+' hover: '+m('(hover: hover)')+' any-pointer coarse: '+m('(any-pointer: coarse)'),
+'dpr: '+devicePixelRatio+' screen: '+s.width+'x'+s.height+' avail '+s.availWidth+'x'+s.availHeight,
+'inner: '+innerWidth+'x'+innerHeight+' outer: '+outerWidth+'x'+outerHeight,
+'cores: '+n.hardwareConcurrency,
+(function(){try{const gl=document.createElement('canvas').getContext('webgl');const e=gl.getExtension('WEBGL_debug_renderer_info');return 'gl: '+gl.getParameter(e.UNMASKED_VENDOR_WEBGL)+' | '+gl.getParameter(e.UNMASKED_RENDERER_WEBGL)}catch(x){return 'gl error '+x}})()].join('\n')}catch(e){document.getElementById('o').textContent='ERR '+e}
+</script>"#).unwrap();
+        let preset_id = std::env::var("HEROV_PHONE_PRESET").unwrap_or_else(|_| "cf-and-0".into());
+        let s = stored(json!({"camoufox": {"preset": preset_id}}));
+        let p = plan("real-phone", &s, &tmp.join("fx"), true, None, None).unwrap();
+        let shot = tmp.join("probe.png");
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.args(&p.args).arg("--screenshot").arg(&shot).arg(format!("file:///{}", page.display().to_string().replace('\\', "/")));
+        for (k, v) in &p.env {
+            if std::env::var("HEROV_NO_PREFS").is_ok() && k.starts_with("CAMOU_PREFS") { continue; }
+            cmd.env(k, v);
+        }
+        let out = cmd.output().expect("run camoufox");
+        println!("exit: {:?}\nshot: {}", out.status.code(), shot.display());
+        assert!(shot.exists(), "no screenshot was written");
+    }
+
+    /// The same phone in a real (not headless) window: the page reports what it sees to a loopback
+    /// listener, which prints it. Headless mode has its own pointer and window values.
+    #[test]
+    #[ignore]
+    fn real_phone_window_reports_a_phone() {
+        use std::io::{Read, Write};
+        let status = install::status();
+        assert!(status.installed, "install Camoufox first");
+        let bin = status.binary_path.unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let tmp = std::env::temp_dir().join(format!("herov-cf-phonewin-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(tmp.join("fx")).unwrap();
+        let page = tmp.join("probe.html");
+        std::fs::write(&page, format!(r#"<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body><script>
+const n=navigator,s=screen,m=q=>matchMedia(q).matches;
+setTimeout(()=>{{let t;try{{t=[
+'UA='+n.userAgent,'platform='+n.platform,'touchPoints='+n.maxTouchPoints,'ontouchstart='+('ontouchstart' in window),
+'coarse='+m('(pointer: coarse)')+' fine='+m('(pointer: fine)')+' hover='+m('(hover: hover)')+' anyCoarse='+m('(any-pointer: coarse)')+' anyFine='+m('(any-pointer: fine)'),
+'dpr='+devicePixelRatio,'screen='+s.width+'x'+s.height+' avail='+s.availWidth+'x'+s.availHeight,
+'inner='+innerWidth+'x'+innerHeight+' outer='+outerWidth+'x'+outerHeight+' screenXY='+screenX+','+screenY,
+'vv='+(window.visualViewport?visualViewport.width+'x'+visualViewport.height+' scale '+visualViewport.scale:'none'),
+'docW='+document.documentElement.clientWidth].join(' | ')}}catch(e){{t='ERR '+e}}
+new Image().src='http://127.0.0.1:{port}/?'+encodeURIComponent(t)}},1500);
+</script>"#)).unwrap();
+        let preset_id = std::env::var("HEROV_PHONE_PRESET").unwrap_or_else(|_| "cf-and-0".into());
+        let s = stored(json!({"camoufox": {"preset": preset_id}}));
+        let mut p = plan("real-phone-win", &s, &tmp.join("fx"), false, None, None).unwrap();
+        if let Ok(extra) = std::env::var("HEROV_PREFS_JSON") {
+            // Try other pref values without rebuilding.
+            let mut prefs = joined(&p.env, "CAMOU_PREFS_").as_object().cloned().unwrap();
+            for (k, v) in serde_json::from_str::<serde_json::Value>(&extra).unwrap().as_object().unwrap() { prefs.insert(k.clone(), v.clone()); }
+            p.env.retain(|(k, _)| !k.starts_with("CAMOU_PREFS_"));
+            p.env.extend(config::chunked_env("CAMOU_PREFS", &serde_json::Value::Object(prefs), config::chunk_size()));
+        }
+        if let Ok(js) = std::env::var("HEROV_USER_JS") { std::fs::write(tmp.join("fx").join("user.js"), js).unwrap(); }
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.args(&p.args).arg(format!("file:///{}", page.display().to_string().replace(char::from(92), "/")));
+        for (k, v) in &p.env { cmd.env(k, v); }
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        let mut child = cmd.spawn().expect("start camoufox");
+        listener.set_nonblocking(true).unwrap();
+        let start = std::time::Instant::now();
+        let mut got = None;
+        while start.elapsed().as_secs() < 60 && got.is_none() {
+            if let Ok((mut sock, _)) = listener.accept() {
+                sock.set_nonblocking(false).ok();
+                let mut buf = [0u8; 4096];
+                let n = sock.read(&mut buf).unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                let _ = sock.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+                if let Some(q) = req.lines().next().and_then(|l| l.split(' ').nth(1)).and_then(|u| u.strip_prefix("/?")) {
+                    got = Some(q.replace("%20", " ").replace("%7C", "|").replace("%3D", "=").replace("%3A", ":").replace("%2C", ",").replace("%28", "(").replace("%29", ")").replace("%2F", "/").replace("%3B", ";"));
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        crate::camoufox::winclose::close_tree(child.id());
+        for _ in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if child.try_wait().unwrap().is_some() { break; }
+        }
+        let _ = child.kill();
+        println!("REPORT: {}", got.as_deref().unwrap_or("none"));
+        assert!(got.is_some(), "the page never reported");
     }
 }
