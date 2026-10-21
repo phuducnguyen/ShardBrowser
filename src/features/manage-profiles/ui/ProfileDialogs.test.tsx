@@ -47,6 +47,47 @@ describe("QuickEditDialog", () => {
     await waitFor(() => expect(backend.argsOf("profile_bind_proxy")).toEqual([{ profileId: "id-a-0001", proxyId: null }]));
   });
 
+  it("adds a pasted proxy to the pool and binds it", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    backend.handlers.proxy_save = ({ entry }) => ({ ...(entry as ProxyEntry), id: "p-new" });
+    render(<QuickEditDialog kind="proxy" profile={profile} proxies={proxies} onClose={() => {}} onSaved={onSaved} />);
+    await user.type(screen.getByRole("textbox", { name: "Or paste a proxy" }), "socks5://bob:pw@203.0.113.77:1080");
+    expect(screen.getByRole("status")).toHaveTextContent("SOCKS5 203.0.113.77:1080 · bob");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(backend.argsOf("proxy_save")[0].entry).toMatchObject({ kind: "socks5", host: "203.0.113.77", port: 1080, username: "bob", password: "pw" });
+    expect(backend.argsOf("profile_bind_proxy")).toEqual([{ profileId: "id-a-0001", proxyId: "p-new" }]);
+  });
+
+  it("reuses a pasted proxy that is already in the pool", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(<QuickEditDialog kind="proxy" profile={profile} proxies={proxies} onClose={() => {}} onSaved={onSaved} />);
+    await user.type(screen.getByRole("textbox", { name: "Or paste a proxy" }), "socks5://198.51.100.12:8080");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(backend.argsOf("proxy_save")).toEqual([]);
+    expect(backend.argsOf("profile_bind_proxy")).toEqual([{ profileId: "id-a-0001", proxyId: "p2" }]);
+  });
+
+  it("blocks Save on a line that is not a proxy", async () => {
+    const user = userEvent.setup();
+    render(<QuickEditDialog kind="proxy" profile={profile} proxies={proxies} onClose={() => {}} onSaved={() => {}} />);
+    await user.type(screen.getByRole("textbox", { name: "Or paste a proxy" }), "not a proxy");
+    expect(screen.getByRole("status")).toHaveTextContent("Not a proxy line");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("copies the bound proxy as a URL", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    const withAuth = [{ ...px("p1", "203.0.113.18", 1080, "US"), username: "bob", password: "pw" }];
+    render(<QuickEditDialog kind="proxy" profile={profile} proxies={withAuth} onClose={() => {}} onSaved={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "Copy proxy" }));
+    expect(writeText).toHaveBeenCalledWith("socks5://bob:pw@203.0.113.18:1080");
+  });
+
   it("saves notes without losing the other fields of the stored profile", async () => {
     const user = userEvent.setup();
     const onSaved = vi.fn();
