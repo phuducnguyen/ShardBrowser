@@ -49,3 +49,18 @@ precisions, converted to Camoufox config keys by `tools/camoufox/extract-webgl.p
 follows `camoufox/webgl.py` of the Camoufox Python package (MIT, reproduced above). The data was
 filtered (software renderers removed) and reduced to the most likely records per GPU; it is not the
 whole model. To regenerate it, install `fpgen`, place the pinned model, and run the script.
+
+---
+
+# Phones (`phones.json`)
+
+The `android` list holds device tuples (name, screen, pixel ratio, Android version, GPU, cores)
+taken from the ManyFaces project (`antidetect/fingerprint.py`).
+
+The `generated` list is derived from the fingerprint network of **Apify fingerprint-suite**
+([apify/fingerprint-suite](https://github.com/apify/fingerprint-suite), Apache License 2.0, same
+licence text as `LICENSE-fpgen-Apache-2.0.txt`), file
+`packages/fingerprint-generator/src/data_files/fingerprint-network-definition.zip`. Android screens
+and GPU names were filtered (desktop GPUs, emulators, software renderers, landscape and tablet
+screens removed), rewritten the way Firefox for Android prints them, and paired by GPU class by
+`tools/camoufox/extract-phones.py`. Copyright (c) Apify Technologies s.r.o. and contributors.

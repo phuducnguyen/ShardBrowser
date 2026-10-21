@@ -748,7 +748,7 @@ const fr=document.createElement('iframe');document.body.appendChild(fr);const if
 try{{t=['TZ main='+tzs(),'TZ worker='+wk,'TZ iframe='+ifr,
 'UA='+n.userAgent,'platform='+n.platform,'touchPoints='+n.maxTouchPoints,'ontouchstart='+('ontouchstart' in window),
 'coarse='+m('(pointer: coarse)')+' fine='+m('(pointer: fine)')+' hover='+m('(hover: hover)')+' anyCoarse='+m('(any-pointer: coarse)')+' anyFine='+m('(any-pointer: fine)'),
-'dpr='+devicePixelRatio,'screen='+s.width+'x'+s.height+' avail='+s.availWidth+'x'+s.availHeight,
+'dpr='+devicePixelRatio+' resMatch='+matchMedia('(resolution: '+devicePixelRatio+'dppx)').matches+' res1='+matchMedia('(resolution: 1dppx)').matches,'screen='+s.width+'x'+s.height+' avail='+s.availWidth+'x'+s.availHeight,
 'inner='+innerWidth+'x'+innerHeight+' outer='+outerWidth+'x'+outerHeight+' screenXY='+screenX+','+screenY,
 'vv='+(window.visualViewport?visualViewport.width+'x'+visualViewport.height+' scale '+visualViewport.scale:'none'),
 'docW='+document.documentElement.clientWidth].join(' | ')}}catch(e){{t='ERR '+e}}

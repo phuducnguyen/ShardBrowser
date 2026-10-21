@@ -106,3 +106,21 @@ Still open on phones:
 | WebGL | hash shown red = lies (parameters are the engine's own) |
 | Audio | part of the sum is red (noise injection), not yet compared with a Windows profile |
 | Trust score and lie count | not captured (the page's top could not be reached by scrolling) |
+
+## 9. CreepJS objective result for a phone (read from CreepJS's own result object)
+
+CreepJS was served from this machine (its public files, unchanged, plus a script that reports `window.Fingerprint`), and opened in a phone profile (generated phone, Android 11, Mali-G77, 360×800).
+
+| Signal | Value |
+|---|---|
+| Lies | **1**: `Window.devicePixelRatio` "lied dpr" |
+| Trash | `suspicious gpu`, `suspicious capabilities` (WebGL getParameter) |
+| Audio | not lied (the red digits on the page are display only) |
+| Headless / stealth | 0% / 0%; "like headless" 13% from `noTaskbar` and `hasVvpScreenRes` (both normal on a phone) |
+| System fonts guess | `Ubuntu:Linux` |
+
+**Pixel ratio lie.** The profile reports `devicePixelRatio` 2.625 while `matchMedia("(resolution: 2.625dppx)")` is false and `(resolution: 1dppx)` is true (the window is really drawn at 1). The engine pref `layout.css.devPixelsPerPx` = 2.625 removes the lie (ratio then reads 2.6087, the value real Firefox gives for 2.625 because of its 60-units-per-pixel rounding, and the media query matches), but the window must then be 2.625 times larger in real pixels: about 1080×2400 for a 412×915 phone, taller than a normal monitor. Not adopted; kept as a known limitation and an option to offer later ("true pixel ratio", for large or rotated monitors).
+
+**WebGL** (`suspicious gpu`, `suspicious capabilities`): the parameters behind a phone GPU name are a desktop's. No public recording of a phone's WebGL exists in the data we have (fpgen has none, Apify has names only), and real-device capture is not planned, so this stays open.
+
+**Pointer** (`pointer: coarse` false): neither CreepJS nor scanbrowser lists it as a lie or anomaly. Left as is.

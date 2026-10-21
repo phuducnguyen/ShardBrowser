@@ -36,3 +36,13 @@ So the host time zone is **not** leaking (it is hidden in every context tested) 
 
 ## Scrollbar width (found 2026-10-21, while reading CreepJS)
 A phone page showed `clientWidth` 343 / `visualViewport.width` 395 against `innerWidth` 360 / 412: the Windows scrollbar (17 px) takes room, a real phone's does not. A probe page with scrolling content confirmed it (`docW` 395 vs `inner` 412). Fix: phone profiles get `chrome/userContent.css` with `:root{scrollbar-width:none!important}`; the probe now reads `docW` 412 = `inner` 412. Effect on the scanbrowser Software verdict: **none** (checked with the screen unlocked: Browser, Hardware and Network OK, Software still anomaly; the page now lays out at full width with no scrollbar). Fonts: stock-Android-like sets were tried as well (Roboto, Noto, CJK, Roboto Mono, Source Sans, Open Sans: the families the engine bundles that a stock phone has) and did not change the verdict by themselves.
+
+## Status of the open items (2026-10-21, end of day)
+| # | Item | Status |
+|---|---|---|
+| 1 | Software flag (scanbrowser) | Parked: not zone, fonts, touch or scrollbars; likely needs real-device data |
+| 2 | WebGL suspicious gpu / capabilities | Parked: needs a phone WebGL recording |
+| 3 | `pointer: coarse` | Not detected by either checker; left |
+| 4 | Audio | Done: CreepJS says not lied |
+| 5 | Trust score signals | Done: read from CreepJS's own result (1 lie: pixel ratio; 2 trash: WebGL) |
+| new | Pixel ratio lie | Understood; fix exists (engine pref) but makes the window 2.6 times larger; offered later as an option |
