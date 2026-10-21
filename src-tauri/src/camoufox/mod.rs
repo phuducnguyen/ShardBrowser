@@ -8,6 +8,7 @@
 
 pub mod config;
 pub mod install;
+pub mod relay;
 pub mod run;
 pub mod winclose;
 
@@ -38,4 +39,5 @@ pub async fn camoufox_install(window: Window, force: bool) -> Result<install::Ca
 pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Result<LaunchOutcome> {
     run::launch(profile_id, enable_cdp, headless).await
 }
+
 

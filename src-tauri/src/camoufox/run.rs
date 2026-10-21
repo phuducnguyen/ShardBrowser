@@ -5,14 +5,18 @@
 //! through the same tracker as Chrome profiles, so Start, Stop, the running state and the
 //! runtime counter work unchanged.
 //!
-//! Until the local proxy relay exists (CF5) a profile with a proxy is refused: starting it would
-//! send traffic straight out of the user's own connection while the profile claims a proxy.
+//! A profile with a proxy starts behind a local relay (see `relay`) that logs in to the proxy, and
+//! takes its time zone, language and position from where the proxy is. If the relay cannot be
+//! started, or the plan would leave the browser without it, the profile does not start at all:
+//! the alternative is traffic leaving on the user's own connection while the profile claims a proxy.
 
-use super::{config, install};
+use super::{config, install, relay};
 use crate::launch::LaunchOutcome;
 use crate::process::Tracker;
 use crate::profile::{self, StoredProfile};
+use crate::proxy::{self, ProxyEntry};
 use anyhow::{Context as _, Result};
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
@@ -46,21 +50,86 @@ pub fn chosen_preset(stored: &StoredProfile, profile_id: &str) -> Result<(&'stat
     config::preset(&pick.id).context("library entry vanished")
 }
 
-/// A Camoufox profile with a proxy must not start before the relay exists.
-pub fn refuse_proxy(stored: &StoredProfile) -> Result<()> {
-    if stored.meta.proxy_id.is_some() || stored.meta.inline_proxy.is_some() {
-        anyhow::bail!(
-            "This Camoufox profile has a proxy. Proxies for Camoufox are not supported yet, and \
-             starting it would use your own connection instead. Remove the proxy to start it, or wait for the next update."
-        );
+/// The proxy a profile is bound to. A binding that points at a proxy that no longer exists is an
+/// error, never a silent fall-back to the user's own connection.
+pub fn bound_proxy(stored: &StoredProfile) -> Result<Option<ProxyEntry>> {
+    if let Some(id) = stored.meta.proxy_id.as_deref() {
+        let p = proxy::get(id)?.with_context(|| format!("the proxy bound to this profile ({id}) no longer exists; choose another or remove it"))?;
+        return Ok(Some(p));
     }
-    Ok(())
+    Ok(stored.meta.inline_proxy.clone())
 }
 
-pub fn plan(profile_id: &str, stored: &StoredProfile, firefox_dir: &Path, headless: bool) -> Result<Plan> {
-    refuse_proxy(stored)?;
+fn has_proxy(stored: &StoredProfile) -> bool {
+    stored.meta.proxy_id.is_some() || stored.meta.inline_proxy.is_some()
+}
+
+/// Where the proxy puts the profile, as far as a site can tell.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Place {
+    pub ip: Option<IpAddr>,
+    pub timezone: String,
+    pub locale: String,
+    pub geolocation: Option<(f64, f64)>,
+}
+
+pub fn place_from_geo(g: &proxy::GeoInfo) -> Place {
+    let timezone = if !g.timezone.is_empty() { g.timezone.clone() } else { proxy::country_to_timezone(&g.country_code).to_string() };
+    Place {
+        ip: g.ip.parse().ok(),
+        timezone,
+        locale: proxy::country_to_locale(&g.country_code).to_string(),
+        geolocation: (g.latitude != 0.0 && g.longitude != 0.0).then_some((g.latitude, g.longitude)),
+    }
+}
+
+/// When the proxy's location cannot be read it is still never this computer's clock: UTC and English
+/// say nothing about where the operator is.
+pub fn place_unknown() -> Place {
+    Place { ip: None, timezone: "UTC".into(), locale: "en-US".into(), geolocation: None }
+}
+
+/// Live answer through the proxy, else the last test of it, else its country tag, else unknown.
+async fn place_of(p: &ProxyEntry) -> Place {
+    match proxy::geo_check_via(Some(p), None).await {
+        Ok(g) => return place_from_geo(&g),
+        Err(e) => eprintln!("[camoufox] proxy geo failed: {e:#}; trying the last test"),
+    }
+    if let Some(s) = proxy::latest_test(&p.id).filter(|s| !s.country_code.is_empty() || !s.timezone.is_empty()) {
+        return place_from_geo(&proxy::GeoInfo {
+            ip: s.ip, country: s.country, country_code: s.country_code, region: s.region, city: s.city,
+            isp: s.isp, timezone: s.timezone, latitude: s.latitude, longitude: s.longitude, provider: s.provider,
+        });
+    }
+    if !p.country.is_empty() {
+        return place_from_geo(&proxy::GeoInfo {
+            ip: String::new(), country: String::new(), country_code: p.country.clone(), region: String::new(), city: String::new(),
+            isp: String::new(), timezone: String::new(), latitude: 0.0, longitude: 0.0, provider: String::new(),
+        });
+    }
+    crate::notify_warning(
+        "Could not read the proxy's location. The profile starts on UTC and English instead of this \
+         computer's own time zone. Test the proxy again to give it a place.",
+    );
+    place_unknown()
+}
+
+/// `relay_port` is the local relay in front of the profile's proxy. A profile that has a proxy
+/// cannot be planned without it.
+pub fn plan(profile_id: &str, stored: &StoredProfile, firefox_dir: &Path, headless: bool, place: Option<&Place>, relay_port: Option<u16>) -> Result<Plan> {
+    anyhow::ensure!(
+        !has_proxy(stored) || relay_port.is_some(),
+        "this profile has a proxy but no relay is in front of it; refusing to start on your own connection"
+    );
     let (preset, os) = chosen_preset(stored, profile_id)?;
-    let ctx = config::Context { profile_id, ..Default::default() };
+    let ctx = config::Context {
+        profile_id,
+        locale: place.map(|p| p.locale.as_str()),
+        timezone: place.map(|p| p.timezone.as_str()),
+        geolocation: place.and_then(|p| p.geolocation),
+        public_ip: place.and_then(|p| p.ip),
+        proxy_relay_port: relay_port,
+    };
     let cfg = config::build_config(preset, os, &ctx);
     let prefs = config::build_prefs(&ctx);
     // `-wait-for-browser`: on Windows Firefox starts through a launcher process that hands over to
@@ -108,7 +177,17 @@ pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Resul
     let bin = status.binary_path.context("Camoufox binary path unknown")?;
     let stored = profile::load_raw(profile_id)?;
     let dir = firefox_dir(profile_id)?;
-    let plan = plan(profile_id, &stored, &dir, headless)?;
+
+    // Behind a proxy: a local relay that logs in, and the place the proxy puts the profile.
+    let proxy_entry = bound_proxy(&stored)?;
+    let (relay, place) = match &proxy_entry {
+        Some(p) => {
+            let r = relay::start(p.clone()).await?;
+            (Some(r), Some(place_of(p).await))
+        }
+        None => (None, None),
+    };
+    let plan = plan(profile_id, &stored, &dir, headless, place.as_ref(), relay.as_ref().map(|r| r.port))?;
 
     let mut cmd = tokio::process::Command::new(&bin);
     cmd.args(&plan.args);
@@ -125,6 +204,17 @@ pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Resul
     let child = cmd.spawn().context("start Camoufox")?;
     let pid = Tracker::shared().track_with(profile_id.to_string(), child, stored.meta.temporary, closer());
     profile::touch_launched(profile_id, None)?;
+
+    // The relay serves the browser for as long as it runs, then goes with it.
+    if let Some(relay) = relay {
+        let id = profile_id.to_string();
+        tokio::spawn(async move {
+            while Tracker::shared().is_running(&id) {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            drop(relay);
+        });
+    }
 
     // Firefox has no DevTools endpoint here; a caller that asked for one is told why it has none.
     let cdp_error = enable_cdp.then(|| "Camoufox profiles have no CDP endpoint; automation is for Chrome profiles".to_string());
@@ -146,29 +236,91 @@ mod tests {
     #[test]
     fn the_plan_opens_its_own_profile_folder_and_carries_the_identity() {
         let s = stored(json!({"name": "Fox", "camoufox": {"preset": "cf-win-0"}}));
-        let p = plan("id-1", &s, Path::new("C:\\data\\firefox"), false).unwrap();
+        let p = plan("id-1", &s, Path::new("C:\\data\\firefox"), false, None, None).unwrap();
         assert_eq!(p.args, vec!["-profile", "C:\\data\\firefox", "-no-remote", "-wait-for-browser"]);
         assert!(p.env.iter().any(|(k, _)| k == "CAMOU_CONFIG_1"));
         assert!(p.env.iter().any(|(k, _)| k == "CAMOU_PREFS_1"));
         let joined: String = p.env.iter().filter(|(k, _)| k.starts_with("CAMOU_CONFIG_")).map(|(_, v)| v.as_str()).collect();
         let cfg: serde_json::Value = serde_json::from_str(&joined).unwrap();
         assert!(cfg["navigator.userAgent"].as_str().unwrap().contains("Firefox/158.0"));
-        let headless = plan("id-1", &s, Path::new("x"), true).unwrap();
+        let headless = plan("id-1", &s, Path::new("x"), true, None, None).unwrap();
         assert!(headless.args.contains(&"-headless".to_string()));
     }
 
-    #[test]
-    fn a_profile_with_a_proxy_is_refused_rather_than_started_on_the_real_connection() {
-        let mut s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
-        s.meta.proxy_id = Some("p1".into());
-        let err = plan("id-1", &s, Path::new("x"), false).unwrap_err();
-        assert!(err.to_string().contains("proxy"), "{err}");
-        let mut inline = stored(json!({}));
-        inline.meta.inline_proxy = Some(crate::proxy::ProxyEntry {
+    fn inline_proxy() -> crate::proxy::ProxyEntry {
+        crate::proxy::ProxyEntry {
             id: String::new(), name: "x".into(), kind: crate::proxy::ProxyKind::Http, host: "203.0.113.1".into(),
             port: 8080, username: String::new(), password: String::new(), country: String::new(), notes: String::new(),
-        });
-        assert!(plan("id-1", &inline, Path::new("x"), false).is_err());
+        }
+    }
+
+    fn joined(env: &[(String, String)], prefix: &str) -> serde_json::Value {
+        let text: String = env.iter().filter(|(k, _)| k.starts_with(prefix)).map(|(_, v)| v.as_str()).collect();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn a_profile_with_a_proxy_cannot_be_planned_without_the_relay() {
+        let mut s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
+        s.meta.proxy_id = Some("p1".into());
+        let err = plan("id-1", &s, Path::new("x"), false, None, None).unwrap_err();
+        assert!(err.to_string().contains("relay"), "{err}");
+        let mut inline = stored(json!({}));
+        inline.meta.inline_proxy = Some(inline_proxy());
+        assert!(plan("id-1", &inline, Path::new("x"), false, None, None).is_err(), "an inline proxy needs the relay too");
+    }
+
+    #[test]
+    fn behind_the_relay_the_browser_is_pointed_at_it_and_placed_where_the_proxy_is() {
+        let mut s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
+        s.meta.inline_proxy = Some(inline_proxy());
+        let place = Place { ip: Some("198.51.100.9".parse().unwrap()), timezone: "Europe/Berlin".into(), locale: "de-DE".into(), geolocation: Some((52.5, 13.4)) };
+        let p = plan("id-1", &s, Path::new("x"), false, Some(&place), Some(40555)).unwrap();
+        let prefs = joined(&p.env, "CAMOU_PREFS_");
+        assert_eq!(prefs["network.proxy.socks_port"], 40555);
+        assert_eq!(prefs["network.proxy.failover_direct"], false);
+        assert_eq!(prefs["intl.locale.requested"], "de-DE");
+        let cfg = joined(&p.env, "CAMOU_CONFIG_");
+        assert_eq!(cfg["timezone"], "Europe/Berlin");
+        assert_eq!(cfg["locale:language"], "de");
+        assert_eq!(cfg["navigator.language"], "de-DE");
+        assert_eq!(cfg["webrtc:ipv4"], "198.51.100.9");
+        assert_eq!(cfg["geolocation:latitude"], 52.5);
+    }
+
+    #[test]
+    fn the_place_comes_from_the_proxys_location_and_falls_back_to_the_country() {
+        let geo = proxy::GeoInfo {
+            ip: "203.0.113.5".into(), country: "Brazil".into(), country_code: "BR".into(), region: String::new(), city: String::new(),
+            isp: String::new(), timezone: "America/Sao_Paulo".into(), latitude: -23.5, longitude: -46.6, provider: String::new(),
+        };
+        let p = place_from_geo(&geo);
+        assert_eq!((p.timezone.as_str(), p.locale.as_str()), ("America/Sao_Paulo", "pt-BR"));
+        assert_eq!(p.geolocation, Some((-23.5, -46.6)));
+        assert_eq!(p.ip, Some("203.0.113.5".parse().unwrap()));
+        // No zone from the provider: the country's own zone is used, and a 0,0 position is not a position.
+        let bare = place_from_geo(&proxy::GeoInfo { timezone: String::new(), latitude: 0.0, longitude: 0.0, ip: String::new(), ..geo });
+        assert!(!bare.timezone.is_empty());
+        assert_eq!(bare.geolocation, None);
+        assert_eq!(bare.ip, None);
+    }
+
+    #[test]
+    fn an_unknown_place_is_never_this_computers_clock() {
+        let u = place_unknown();
+        assert_eq!((u.timezone.as_str(), u.locale.as_str()), ("UTC", "en-US"));
+        assert_eq!(u.geolocation, None);
+    }
+
+    #[test]
+    fn a_proxy_bound_by_id_that_no_longer_exists_is_an_error_not_a_direct_connection() {
+        let mut s = stored(json!({}));
+        s.meta.proxy_id = Some("no-such-proxy-for-this-test".into());
+        assert!(bound_proxy(&s).is_err());
+        let mut inline = stored(json!({}));
+        inline.meta.inline_proxy = Some(inline_proxy());
+        assert!(bound_proxy(&inline).unwrap().is_some());
+        assert!(bound_proxy(&stored(json!({}))).unwrap().is_none());
     }
 
     #[test]
@@ -188,6 +340,162 @@ mod tests {
         assert!(chosen_preset(&s, "x").is_err());
     }
 
+    /// Camoufox behind the relay and a proxy that wants a login, reaching a site whose name exists
+    /// nowhere but in the proxy: proves login, remote DNS, and the place taken from the proxy.
+    ///   HEROV_TEST_MANIFEST=1 cargo test --lib real_proxy -- --ignored --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn real_engine_reaches_a_site_through_the_relay_and_a_proxy_with_login() {
+        use std::sync::{Arc, Mutex};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::{TcpListener, TcpStream};
+        let bin = install::status().binary_path.expect("install Camoufox first");
+
+        // The "website": answers any request with a page that prints what the browser reports.
+        let web = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let web_port = web.local_addr().unwrap().port();
+        let hosts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let hosts2 = hosts.clone();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = web.accept().await {
+                let hosts = hosts2.clone();
+                tokio::spawn(async move {
+                    let mut req = Vec::new();
+                    let mut b = [0u8; 1];
+                    while !req.ends_with(b"\r\n\r\n") {
+                        if s.read_exact(&mut b).await.is_err() { return; }
+                        req.push(b[0]);
+                    }
+                    let text = String::from_utf8_lossy(&req).to_string();
+                    if let Some(h) = text.lines().find(|l| l.to_ascii_lowercase().starts_with("host:")) { hosts.lock().unwrap().push(h.to_string()); }
+                    let body = r#"<!doctype html><meta charset=utf-8><body style="font:22px monospace"><h1>REACHED THROUGH THE PROXY</h1><pre id=o></pre><script>
+document.getElementById('o').textContent=['tz: '+Intl.DateTimeFormat().resolvedOptions().timeZone,'lang: '+navigator.language,'UA: '+navigator.userAgent].join('\n');</script>"#;
+                    let _ = s.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await;
+                });
+            }
+        });
+
+        // The upstream proxy: wants Basic bob:pw, maps example.test:80 to the website.
+        let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen2 = seen.clone();
+        let up = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let up_port = up.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            while let Ok((mut c, _)) = up.accept().await {
+                let seen = seen2.clone();
+                tokio::spawn(async move {
+                    let mut head = Vec::new();
+                    let mut b = [0u8; 1];
+                    while !head.ends_with(b"\r\n\r\n") {
+                        if c.read_exact(&mut b).await.is_err() { return; }
+                        head.push(b[0]);
+                    }
+                    let text = String::from_utf8_lossy(&head).to_string();
+                    seen.lock().unwrap().push(text.lines().next().unwrap_or("").to_string());
+                    let tok = base64_std("bob:pw");
+                    if !text.contains(&format!("Proxy-Authorization: Basic {tok}")) {
+                        let _ = c.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n").await;
+                        return;
+                    }
+                    if text.starts_with("CONNECT example.test:80 ") {
+                        if let Ok(mut w) = TcpStream::connect(("127.0.0.1", web_port)).await {
+                            let _ = c.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n").await;
+                            let _ = tokio::io::copy_bidirectional(&mut c, &mut w).await;
+                            return;
+                        }
+                    }
+                    let _ = c.write_all(b"HTTP/1.1 502 Bad Gateway\r\n\r\n").await;
+                });
+            }
+        });
+
+        let entry = crate::proxy::ProxyEntry {
+            id: String::new(), name: "mock".into(), kind: crate::proxy::ProxyKind::Http, host: "127.0.0.1".into(),
+            port: up_port, username: "bob".into(), password: "pw".into(), country: "DE".into(), notes: String::new(),
+        };
+        let relay = relay::start(entry.clone()).await.unwrap();
+        let mut s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
+        s.meta.inline_proxy = Some(entry);
+        let place = Place { ip: Some("198.51.100.9".parse().unwrap()), timezone: "Europe/Berlin".into(), locale: "de-DE".into(), geolocation: None };
+        let tmp = std::env::temp_dir().join(format!("herov-cf-proxy-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(tmp.join("fx")).unwrap();
+        let p = plan("real-proxy", &s, &tmp.join("fx"), true, Some(&place), Some(relay.port)).unwrap();
+        let shot = tmp.join("proxy.png");
+        let (bin2, shot2) = (bin.clone(), shot.clone());
+        let status = tokio::task::spawn_blocking(move || {
+            let mut cmd = std::process::Command::new(bin2);
+            cmd.args(&p.args).arg("--screenshot").arg(&shot2).arg("http://example.test/");
+            for (k, v) in &p.env { cmd.env(k, v); }
+            cmd.stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap()
+        }).await.unwrap();
+        println!("exit: {status:?}\nshot: {}\nupstream saw: {:?}\nwebsite saw: {:?}", shot.display(), seen.lock().unwrap(), hosts.lock().unwrap());
+        assert!(shot.exists(), "no screenshot");
+        assert!(seen.lock().unwrap().iter().any(|l| l.starts_with("CONNECT example.test:80")), "the name must reach the proxy unresolved");
+        assert!(hosts.lock().unwrap().iter().any(|h| h.to_ascii_lowercase().contains("example.test")), "the site never got the request");
+    }
+
+    /// The guard that matters most: with the relay gone the page must fail, not go out directly.
+    /// The site is on this computer (127.0.0.1) and the loopback exemption is switched off for the
+    /// test, so reaching it at all would mean the browser bypassed the proxy.
+    ///   HEROV_TEST_MANIFEST=1 cargo test --lib real_engine_does_not_go -- --ignored --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn real_engine_does_not_go_direct_when_the_relay_is_down() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+        let bin = install::status().binary_path.expect("install Camoufox first");
+        let web = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let web_port = web.local_addr().unwrap().port();
+        let hit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let hit2 = hit.clone();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = web.accept().await {
+                hit2.store(true, std::sync::atomic::Ordering::SeqCst);
+                let _ = s.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\nConnection: close\r\n\r\nWENT DIRECT").await;
+            }
+        });
+        // A port nothing listens on: the relay is "down".
+        let dead = { let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap(); l.local_addr().unwrap().port() };
+        let mut s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
+        s.meta.inline_proxy = Some(crate::proxy::ProxyEntry {
+            id: String::new(), name: "x".into(), kind: crate::proxy::ProxyKind::Http, host: "127.0.0.1".into(),
+            port: 9, username: String::new(), password: String::new(), country: String::new(), notes: String::new(),
+        });
+        let p = plan("real-leak", &s, &std::env::temp_dir().join(format!("herov-cf-leak-{}", uuid::Uuid::new_v4())), true, None, Some(dead)).unwrap();
+        // Same prefs, plus: do not exempt loopback from the proxy.
+        let ctx = config::Context { profile_id: "real-leak", proxy_relay_port: Some(dead), ..Default::default() };
+        let mut prefs = config::build_prefs(&ctx);
+        prefs.insert("network.proxy.no_proxies_on".into(), json!(""));
+        // Firefox never proxies loopback unless told it may, whatever the exemption list says.
+        prefs.insert("network.proxy.allow_hijacking_localhost".into(), json!(true));
+        let mut env: Vec<(String, String)> = p.env.iter().filter(|(k, _)| !k.starts_with("CAMOU_PREFS_")).cloned().collect();
+        env.extend(config::chunked_env("CAMOU_PREFS", &serde_json::Value::Object(prefs), config::chunk_size()));
+        let dir = std::path::PathBuf::from(&p.args[1]);
+        std::fs::create_dir_all(&dir).unwrap();
+        let shot = dir.join("leak.png");
+        let (bin2, shot2, args) = (bin, shot.clone(), p.args.clone());
+        tokio::task::spawn_blocking(move || {
+            let mut cmd = std::process::Command::new(bin2);
+            cmd.args(&args).arg("--screenshot").arg(&shot2).arg(format!("http://127.0.0.1:{web_port}/"));
+            for (k, v) in &env { cmd.env(k, v); }
+            let mut child = cmd.stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
+            // A page that cannot load may never finish; 25 s is plenty to have reached the site if it could.
+            for _ in 0..50 {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if child.try_wait().unwrap().is_some() { return; }
+            }
+            let _ = std::process::Command::new("taskkill").args(["/PID", &child.id().to_string(), "/T", "/F"]).output();
+            let _ = child.kill();
+        }).await.unwrap();
+        println!("shot: {}\nwebsite was contacted directly: {}", shot.display(), hit.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(!hit.load(std::sync::atomic::Ordering::SeqCst), "the browser reached the site without the relay: a leak");
+    }
+
+    fn base64_std(s: &str) -> String {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.encode(s)
+    }
+
     /// Opens a real window and checks the process the launcher started is the browser itself: if
     /// Windows used a launcher process that hands over and exits, the tracker would think the
     /// profile had stopped. Then closes it the way Stop does.
@@ -200,7 +508,7 @@ mod tests {
         let fx = tmp.join("fx");
         std::fs::create_dir_all(&fx).unwrap();
         let s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
-        let p = plan("real-window", &s, &fx, false).unwrap();
+        let p = plan("real-window", &s, &fx, false, None, None).unwrap();
         let mut cmd = std::process::Command::new(&bin);
         cmd.args(&p.args).arg("about:blank");
         for (k, v) in &p.env { cmd.env(k, v); }
@@ -258,7 +566,7 @@ document.getElementById('o').textContent=[
 'tz: '+Intl.DateTimeFormat().resolvedOptions().timeZone,'lang: '+n.language,'fonts: '+fonts].join('\n');
 </script>"#).unwrap();
         let s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
-        let p = plan("real-test", &s, &tmp.join("fx"), true).unwrap();
+        let p = plan("real-test", &s, &tmp.join("fx"), true, None, None).unwrap();
         std::fs::create_dir_all(tmp.join("fx")).unwrap();
         let shot = tmp.join("probe.png");
         let mut cmd = std::process::Command::new(&bin);

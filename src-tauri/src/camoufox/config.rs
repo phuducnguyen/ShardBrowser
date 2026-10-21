@@ -197,6 +197,8 @@ pub struct Context<'a> {
     pub geolocation: Option<(f64, f64)>,
     /// The address pages will see; WebRTC is told to report it.
     pub public_ip: Option<IpAddr>,
+    /// Port of the local relay in front of the profile's proxy; `None` means no proxy.
+    pub proxy_relay_port: Option<u16>,
 }
 
 pub fn fnv64(s: &str) -> u64 {
@@ -443,6 +445,21 @@ pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
         // A position handed out without a prompt must also read as "granted" through the Permissions API.
         p.insert("permissions.default.geo".into(), json!(1));
     }
+    if let Some(port) = ctx.proxy_relay_port {
+        // Everything goes to the local relay, which logs in to the real proxy.
+        p.insert("network.proxy.type".into(), json!(1));
+        p.insert("network.proxy.socks".into(), json!("127.0.0.1"));
+        p.insert("network.proxy.socks_port".into(), json!(port));
+        p.insert("network.proxy.socks_version".into(), json!(5));
+        // Names are resolved by the proxy, never on this computer.
+        p.insert("network.proxy.socks_remote_dns".into(), json!(true));
+        // If the relay or proxy fails, the page must fail, not go out on this connection.
+        p.insert("network.proxy.failover_direct".into(), json!(false));
+        // No DNS-over-HTTPS lookups that would bypass the proxy.
+        p.insert("network.trr.mode".into(), json!(5));
+        // WebRTC may only use the proxy (TCP); the address it reports is the spoofed one.
+        p.insert("media.peerconnection.ice.proxy_only".into(), json!(true));
+    }
     p
 }
 
@@ -516,7 +533,7 @@ mod tests {
         assert!(known.len() > 100, "known-keys.txt looks empty");
         let c = Context {
             profile_id: "p", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"),
-            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()),
+            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()), proxy_relay_port: Some(1080),
         };
         for e in library() {
             let (p, os) = preset(&e.id).unwrap();
@@ -594,7 +611,7 @@ mod tests {
     #[test]
     fn locale_and_location_come_from_the_context() {
         let (p, os) = preset("cf-win-0").unwrap();
-        let c = Context { profile_id: "x", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"), geolocation: Some((-23.5, -46.6)), public_ip: Some("2001:db8::1".parse().unwrap()) };
+        let c = Context { profile_id: "x", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"), geolocation: Some((-23.5, -46.6)), public_ip: Some("2001:db8::1".parse().unwrap()), ..Default::default() };
         let cfg = build_config(p, os, &c);
         assert_eq!(cfg["locale:language"], "pt");
         assert_eq!(cfg["locale:region"], "BR");
@@ -612,6 +629,24 @@ mod tests {
         assert_eq!(build_prefs(&ctx("x"))["intl.locale.requested"], "en-US");
         assert_eq!(split_locale("zh-Hans-CN"), ("zh".into(), Some("Hans".into()), Some("CN".into())));
         assert_eq!(split_locale("en"), ("en".into(), None, None));
+    }
+
+    #[test]
+    fn with_a_proxy_the_browser_is_pointed_at_the_relay_and_may_not_go_direct() {
+        let c = Context { profile_id: "x", proxy_relay_port: Some(40123), ..Default::default() };
+        let p = build_prefs(&c);
+        assert_eq!(p["network.proxy.type"], 1);
+        assert_eq!(p["network.proxy.socks"], "127.0.0.1");
+        assert_eq!(p["network.proxy.socks_port"], 40123);
+        assert_eq!(p["network.proxy.socks_remote_dns"], true, "names must be resolved by the proxy");
+        assert_eq!(p["network.proxy.failover_direct"], false, "a failing proxy must not fall back to this connection");
+        assert_eq!(p["network.trr.mode"], 5, "DNS-over-HTTPS would bypass the proxy");
+        assert_eq!(p["media.peerconnection.ice.proxy_only"], true);
+        let known = known();
+        // The proxy and network prefs are Firefox's, not Camoufox properties; they only travel as prefs.
+        assert!(p.keys().all(|k| !known.contains(k.as_str())));
+        // Without a proxy none of this is written.
+        assert!(!build_prefs(&ctx("x")).keys().any(|k| k.starts_with("network.")));
     }
 
     #[test]
