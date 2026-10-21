@@ -33,3 +33,6 @@ Measured with the real engine on scanbrowser.net, one change at a time on the sa
 | Touch events switched off | still anomaly |
 
 So the host time zone is **not** leaking (it is hidden in every context tested) and neither fonts, zone nor touch decide this verdict. What differs from the recorded desktop profiles that pass is only that a phone has no recorded device behind it. Item 1 of the table above is therefore parked until real device data exists; items 4 (audio), 2 (WebGL) and 3 (pointer) do not depend on it.
+
+## Scrollbar width (found 2026-10-21, while reading CreepJS)
+A phone page showed `clientWidth` 343 / `visualViewport.width` 395 against `innerWidth` 360 / 412: the Windows scrollbar (17 px) takes room, a real phone's does not. A probe page with scrolling content confirmed it (`docW` 395 vs `inner` 412). Fix: phone profiles get `chrome/userContent.css` with `:root{scrollbar-width:none!important}`; the probe now reads `docW` 412 = `inner` 412. Effect on the scanbrowser Software verdict: **not yet checked** (the screen was locked during the run). Fonts: stock-Android-like sets were tried as well (Roboto, Noto, CJK, Roboto Mono, Source Sans, Open Sans: the families the engine bundles that a stock phone has) and did not change the verdict by themselves.

@@ -690,6 +690,11 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
 pub const PHONE_CHROME_CSS: &str = "#main-window,:root{min-width:0!important;min-height:0!important} #navigator-toolbox,#nav-bar,#TabsToolbar{min-width:0!important}
 ";
 
+/// A phone's scrollbars are overlays: they take no room, so a page's width equals the window's. The
+/// Windows ones take 17 px, which a page sees as `clientWidth` smaller than `innerWidth`.
+pub const PHONE_CONTENT_CSS: &str = ":root{scrollbar-width:none!important}
+";
+
 /// Prefs Camoufox applies at start-up (through `CAMOU_PREFS_n`).
 pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
     let mut p = Map::new();

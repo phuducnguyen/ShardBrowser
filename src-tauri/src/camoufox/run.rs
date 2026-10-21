@@ -188,12 +188,15 @@ fn closer() -> Option<crate::process::Closer> {
 /// Files the profile folder needs before start: a phone's window stylesheet, or none (a profile that
 /// was a phone and is not any more must not keep it).
 pub fn prepare_profile_dir(dir: &Path, phone: bool) -> Result<()> {
-    let css = dir.join("chrome").join("userChrome.css");
-    if phone {
-        std::fs::create_dir_all(dir.join("chrome")).context("create chrome folder")?;
-        std::fs::write(&css, config::PHONE_CHROME_CSS).context("write phone window stylesheet")?;
-    } else if css.exists() {
-        std::fs::remove_file(&css).ok();
+    let chrome = dir.join("chrome");
+    for (name, body) in [("userChrome.css", config::PHONE_CHROME_CSS), ("userContent.css", config::PHONE_CONTENT_CSS)] {
+        let file = chrome.join(name);
+        if phone {
+            std::fs::create_dir_all(&chrome).context("create chrome folder")?;
+            std::fs::write(&file, body).with_context(|| format!("write phone {name}"))?;
+        } else if file.exists() {
+            std::fs::remove_file(&file).ok();
+        }
     }
     Ok(())
 }
@@ -295,9 +298,11 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         prepare_profile_dir(&dir, true).unwrap();
         let css = dir.join("chrome").join("userChrome.css");
+        let content = dir.join("chrome").join("userContent.css");
         assert!(std::fs::read_to_string(&css).unwrap().contains("min-width:0"));
+        assert!(std::fs::read_to_string(&content).unwrap().contains("scrollbar-width:none"));
         prepare_profile_dir(&dir, false).unwrap();
-        assert!(!css.exists());
+        assert!(!css.exists() && !content.exists());
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -735,7 +740,7 @@ try{document.getElementById('o').textContent=[
         let tmp = std::env::temp_dir().join(format!("herov-cf-phonewin-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(tmp.join("fx")).unwrap();
         let page = tmp.join("probe.html");
-        std::fs::write(&page, format!(r#"<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body><script>
+        std::fs::write(&page, format!(r#"<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body><div style="height:3000px">tall</div><script>
 const n=navigator,s=screen,m=q=>matchMedia(q).matches;
 setTimeout(async()=>{{let t;const tzs=()=>Intl.DateTimeFormat().resolvedOptions().timeZone+' off='+new Date().getTimezoneOffset()+' '+new Date(2026,6,1,12).toString().slice(16,40);
 const wk=await new Promise(r=>{{try{{const w=new Worker(URL.createObjectURL(new Blob(['postMessage(Intl.DateTimeFormat().resolvedOptions().timeZone+" off="+new Date().getTimezoneOffset()+" "+new Date(2026,6,1,12).toString().slice(16,40))'])));w.onmessage=e=>r(e.data);setTimeout(()=>r('timeout'),2500)}}catch(x){{r('ERR '+x)}}}});
