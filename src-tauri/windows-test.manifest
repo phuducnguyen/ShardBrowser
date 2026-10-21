@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Applied to unit-test binaries only (see build.rs). The Tauri stack imports from comctl32 v6;
+     without this manifest Windows loads v5 and refuses to start the test exe with
+     STATUS_ENTRYPOINT_NOT_FOUND. The shipped app gets its manifest from tauri-build. -->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"
+        processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
+    </dependentAssembly>
+  </dependency>
+</assembly>
