@@ -34,3 +34,18 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+---
+
+# WebGL identities (`webgl-devices.json`)
+
+`webgl-devices.json` is derived from the model of **fpgen**
+([scrapfly/fingerprint-generator](https://github.com/scrapfly/fingerprint-generator),
+Apache License 2.0, full text in `LICENSE-fpgen-Apache-2.0.txt`), release `model-2/2026`,
+SHA-256 `6530b8322cdaa4ec042921c8d9a0369a0e6e0269ba636c01a7203e4a2f109936`. It holds, for each
+recorded Firefox device, the WebGL vendor, renderer, parameters, extension list and shader
+precisions, converted to Camoufox config keys by `tools/camoufox/extract-webgl.py`. That conversion
+follows `camoufox/webgl.py` of the Camoufox Python package (MIT, reproduced above). The data was
+filtered (software renderers removed) and reduced to the most likely records per GPU; it is not the
+whole model. To regenerate it, install `fpgen`, place the pinned model, and run the script.

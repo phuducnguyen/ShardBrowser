@@ -89,6 +89,18 @@ pub fn place_unknown() -> Place {
     Place { ip: None, timezone: "UTC".into(), locale: "en-US".into(), geolocation: None }
 }
 
+/// Where this computer's own address is, or `None` when it cannot be read (the browser then keeps
+/// the computer's own settings, which is what a direct connection would show anyway).
+async fn place_direct() -> Option<Place> {
+    match proxy::geo_check_via(None, None).await {
+        Ok(g) => Some(place_from_geo(&g)),
+        Err(e) => {
+            eprintln!("[camoufox] could not read this computer's location: {e:#}; leaving the time zone alone");
+            None
+        }
+    }
+}
+
 /// Live answer through the proxy, else the last test of it, else its country tag, else unknown.
 async fn place_of(p: &ProxyEntry) -> Place {
     match proxy::geo_check_via(Some(p), None).await {
@@ -185,7 +197,9 @@ pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Resul
             let r = relay::start(p.clone()).await?;
             (Some(r), Some(place_of(p).await))
         }
-        None => (None, None),
+        // No proxy: the profile is at this computer's own address, so its clock and language follow
+        // that address, not whatever zone Windows happens to be set to (a mismatch a checker flags).
+        None => (None, place_direct().await),
     };
     let plan = plan(profile_id, &stored, &dir, headless, place.as_ref(), relay.as_ref().map(|r| r.port))?;
 
@@ -289,6 +303,18 @@ mod tests {
     }
 
     #[test]
+    fn a_direct_profile_can_take_its_place_from_its_own_address() {
+        let s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
+        let place = Place { ip: Some("203.0.113.5".parse().unwrap()), timezone: "Asia/Ho_Chi_Minh".into(), locale: "vi-VN".into(), geolocation: None };
+        let p = plan("id-1", &s, Path::new("x"), false, Some(&place), None).unwrap();
+        let cfg = joined(&p.env, "CAMOU_CONFIG_");
+        assert_eq!(cfg["timezone"], "Asia/Ho_Chi_Minh");
+        assert_eq!(cfg["navigator.language"], "vi-VN");
+        assert_eq!(cfg["webrtc:ipv4"], "203.0.113.5");
+        assert!(joined(&p.env, "CAMOU_PREFS_").get("network.proxy.type").is_none(), "no proxy is configured");
+    }
+
+    #[test]
     fn the_place_comes_from_the_proxys_location_and_falls_back_to_the_country() {
         let geo = proxy::GeoInfo {
             ip: "203.0.113.5".into(), country: "Brazil".into(), country_code: "BR".into(), region: String::new(), city: String::new(),
@@ -353,7 +379,10 @@ mod tests {
         let fx = std::env::temp_dir().join(format!("herov-cf-url-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&fx).unwrap();
         let s = stored(json!({"camoufox": {"preset": preset}}));
-        let p = plan("real-url", &s, &fx, false, None, None).unwrap();
+        // As in production: a direct profile takes its time zone and language from its own address.
+        let place = tokio::runtime::Runtime::new().unwrap().block_on(place_direct());
+        println!("place from this address: {place:?}");
+        let p = plan("real-url", &s, &fx, false, place.as_ref(), None).unwrap();
         let mut cmd = std::process::Command::new(&bin);
         cmd.args(&p.args).arg(&url);
         for (k, v) in &p.env { cmd.env(k, v); }
@@ -592,7 +621,11 @@ const fonts=['Arial','Calibri','Segoe UI','Consolas','Helvetica Neue','Menlo','D
 document.getElementById('o').textContent=[
 'UA: '+n.userAgent,'platform: '+n.platform,'oscpu: '+n.oscpu,'appVersion: '+n.appVersion,'cores: '+n.hardwareConcurrency,
 'screen: '+s.width+'x'+s.height+' avail '+s.availWidth+'x'+s.availHeight+' depth '+s.colorDepth,
-'tz: '+Intl.DateTimeFormat().resolvedOptions().timeZone,'lang: '+n.language,'fonts: '+fonts].join('\n');
+'tz: '+Intl.DateTimeFormat().resolvedOptions().timeZone,'lang: '+n.language,'fonts: '+fonts,
+...(function(){try{const out=[];for(const t of ['webgl','webgl2']){const gl=document.createElement('canvas').getContext(t);if(!gl){out.push(t+': NO CONTEXT');continue}
+const e=gl.getExtension('WEBGL_debug_renderer_info');out.push(t+': '+(e?gl.getParameter(e.UNMASKED_VENDOR_WEBGL)+' | '+gl.getParameter(e.UNMASKED_RENDERER_WEBGL):'no debug info'));
+out.push('  vendor='+gl.getParameter(gl.VENDOR)+' renderer='+gl.getParameter(gl.RENDERER)+' ver='+gl.getParameter(gl.VERSION));
+out.push('  maxTex='+gl.getParameter(gl.MAX_TEXTURE_SIZE)+' maxVertAttribs='+gl.getParameter(gl.MAX_VERTEX_ATTRIBS)+' maxViewport='+Array.from(gl.getParameter(gl.MAX_VIEWPORT_DIMS))+' ext='+gl.getSupportedExtensions().length)}return out}catch(x){return ['webgl error: '+x]}})()].join('\n');
 </script>"#).unwrap();
         let s = stored(json!({"camoufox": {"preset": "cf-win-0"}}));
         let p = plan("real-test", &s, &tmp.join("fx"), true, None, None).unwrap();

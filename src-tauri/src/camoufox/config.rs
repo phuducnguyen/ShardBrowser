@@ -7,10 +7,12 @@
 //!
 //! Source data (`data/`) is from the Camoufox Python package (MIT), see `data/NOTICE.md`.
 //!
-//! What this first version does not do, on purpose: it leaves WebGL alone. The recorded devices
-//! carry a GPU name but not the matching WebGL parameter set, and a GPU name that disagrees with
-//! the parameters is a worse tell than the host's real graphics card, which is coherent with
-//! itself. Matching WebGL identities are a later package.
+//! WebGL is masked with recorded identities (`data/webgl-devices.json`, from the fpgen model,
+//! Apache-2.0, extracted by `tools/camoufox/extract-webgl.py`): vendor, renderer, every parameter,
+//! the extension list and the shader precisions of a real device, for WebGL 1 and 2. A GPU name on
+//! its own contradicts the parameters behind it; a recorded set does not. The set follows the
+//! preset's own GPU when one was recorded for the claimed OS, otherwise a likely device of that OS.
+//! There are no recordings for phones, so Android and iOS profiles cannot be masked this way.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -42,6 +44,15 @@ impl TargetOs {
             TargetOs::Linux
         } else {
             TargetOs::Macos
+        }
+    }
+
+    /// The OS name used in `data/webgl-devices.json`.
+    fn data_key(self) -> &'static str {
+        match self {
+            TargetOs::Windows => "windows",
+            TargetOs::Macos => "macos",
+            TargetOs::Linux => "linux",
         }
     }
 
@@ -159,9 +170,21 @@ pub fn short_gpu(renderer: &str) -> String {
     s.to_string()
 }
 
+/// A software rasteriser (no real GPU) is a tell of its own, so such a recorded device is not offered.
+/// Its index is kept, so ids of profiles that already name one do not move.
+fn is_software_gpu(renderer: &str) -> bool {
+    let r = renderer.to_ascii_lowercase();
+    ["microsoft basic render", "llvmpipe", "softpipe", "swiftshader", "software"].iter().any(|m| r.contains(m))
+}
+
+fn preset_is_software(p: &Preset) -> bool {
+    p.webgl.as_ref().and_then(|w| w.unmasked_renderer.as_deref()).map(is_software_gpu).unwrap_or(false)
+}
+
 pub fn library() -> Vec<LibraryEntry> {
     all_presets()
         .iter()
+        .filter(|(_, _, p)| !preset_is_software(p))
         .map(|(id, os, p)| {
             let gpu = p
                 .webgl
@@ -327,6 +350,64 @@ fn font_base(os: TargetOs, profile_id: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+struct WebglDevice {
+    os: String,
+    vendor: String,
+    renderer: String,
+    weight: f64,
+    config: Map<String, Value>,
+}
+
+const WEBGL_JSON: &str = include_str!("data/webgl-devices.json");
+
+fn webgl_devices() -> &'static Vec<WebglDevice> {
+    static CELL: OnceLock<Vec<WebglDevice>> = OnceLock::new();
+    CELL.get_or_init(|| {
+        let root: Value = serde_json::from_str(WEBGL_JSON).expect("bundled WebGL devices parse");
+        root["devices"]
+            .as_array()
+            .expect("devices array")
+            .iter()
+            .map(|d| WebglDevice {
+                os: d["os"].as_str().unwrap_or_default().to_string(),
+                vendor: d["vendor"].as_str().unwrap_or_default().to_string(),
+                renderer: d["renderer"].as_str().unwrap_or_default().to_string(),
+                weight: d["weight"].as_f64().unwrap_or(0.0),
+                config: d["config"].as_object().cloned().unwrap_or_default(),
+            })
+            .collect()
+    })
+}
+
+/// The recorded WebGL identity for a preset: the device recorded behind its own GPU when there is
+/// one on this OS, otherwise a likely device of the OS. Chosen by weight from the profile id, so the
+/// same profile always gets the same one.
+fn pick_webgl(os: TargetOs, preset: &Preset, profile_id: &str) -> Option<&'static WebglDevice> {
+    let on_os: Vec<&WebglDevice> = webgl_devices().iter().filter(|d| d.os == os.data_key()).collect();
+    let own = preset.webgl.as_ref();
+    let exact: Vec<&WebglDevice> = on_os
+        .iter()
+        .copied()
+        .filter(|d| {
+            own.map(|w| w.unmasked_vendor.as_deref() == Some(d.vendor.as_str()) && w.unmasked_renderer.as_deref() == Some(d.renderer.as_str()))
+                .unwrap_or(false)
+        })
+        .collect();
+    let pool = if exact.is_empty() { on_os } else { exact };
+    let total: f64 = pool.iter().map(|d| d.weight).sum();
+    if pool.is_empty() || total <= 0.0 {
+        return pool.first().copied();
+    }
+    let mut roll = (fnv64(&format!("{profile_id}::webgl")) % 1_000_000) as f64 / 1_000_000.0 * total;
+    for d in &pool {
+        if roll < d.weight {
+            return Some(d);
+        }
+        roll -= d.weight;
+    }
+    pool.last().copied()
+}
+
 /// Split "pt-BR" or "zh-Hans-CN" into (language, script, region).
 fn split_locale(tag: &str) -> (String, Option<String>, Option<String>) {
     let mut language = String::new();
@@ -381,6 +462,17 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
     // Per profile and stable across launches (a zero seed would mean "no noise").
     let seed = (fnv64(&format!("{}::audio", ctx.profile_id)) % 4_294_967_295) as u32 + 1;
     c.insert("audio:seed".into(), json!(seed));
+
+    // WebGL: a full recorded identity, so the GPU name, the parameters and the extensions agree.
+    // Every recorded device has WebGL 2, so the `webGl2Enabled` switch (a key newer than the pinned
+    // Camoufox knows) is not needed and is left out.
+    if let Some(dev) = pick_webgl(os, preset, ctx.profile_id) {
+        for (k, v) in &dev.config {
+            if k != "webGl2Enabled" {
+                c.insert(k.clone(), v.clone());
+            }
+        }
+    }
 
     let fonts = font_base(os, ctx.profile_id);
     if !fonts.is_empty() {
@@ -517,11 +609,16 @@ mod tests {
     }
 
     #[test]
-    fn the_library_has_the_113_recorded_devices() {
+    fn the_library_offers_the_recorded_devices_that_have_a_real_gpu() {
+        // 113 are recorded; the 4 that use Microsoft's software renderer are not offered.
+        assert_eq!(all_presets().len(), 113);
         let lib = library();
-        assert_eq!(lib.len(), 113);
+        assert_eq!(lib.len(), 109);
         let count = |os| lib.iter().filter(|e| e.os == os).count();
-        assert_eq!((count(TargetOs::Windows), count(TargetOs::Macos), count(TargetOs::Linux)), (71, 25, 17));
+        assert_eq!((count(TargetOs::Windows), count(TargetOs::Macos), count(TargetOs::Linux)), (67, 25, 17));
+        assert!(lib.iter().all(|e| !is_software_gpu(&e.gpu)), "a software rasteriser must not be offered");
+        // A profile that already names one of the four still resolves it.
+        assert!(all_presets().iter().any(|(id, _, p)| preset_is_software(p) && preset(id).is_some()));
         let ids: std::collections::HashSet<_> = lib.iter().map(|e| e.id.as_str()).collect();
         assert_eq!(ids.len(), lib.len(), "ids are unique");
         assert!(lib.iter().all(|e| preset(&e.id).is_some()));
@@ -579,11 +676,55 @@ mod tests {
     }
 
     #[test]
-    fn the_host_graphics_are_left_alone() {
+    fn every_device_wears_a_complete_recorded_webgl_identity_that_matches_its_os() {
+        let known = known();
         for e in library() {
             let (p, os) = preset(&e.id).unwrap();
-            assert!(build_config(p, os, &ctx("x")).keys().all(|k| !k.starts_with("webGl")), "{}", e.id);
+            let c = build_config(p, os, &ctx("x"));
+            for k in ["webGl:vendor", "webGl:renderer", "webGl:parameters", "webGl:supportedExtensions", "webGl:shaderPrecisionFormats",
+                      "webGl2:parameters", "webGl2:supportedExtensions", "webGl2:shaderPrecisionFormats"] {
+                assert!(c.contains_key(k), "{} lacks {k}", e.id);
+            }
+            assert!(!c.contains_key("webGl2Enabled"), "a key the pinned Camoufox does not know");
+            assert!(c.keys().all(|k| known.contains(k.as_str())), "{}", e.id);
+            let params = c["webGl:parameters"].as_object().unwrap();
+            assert!(params.len() > 40, "{}: only {} WebGL parameters", e.id, params.len());
+            // The renderer is the platform's: ANGLE on Windows, Apple or Mesa style elsewhere.
+            let r = c["webGl:renderer"].as_str().unwrap();
+            match os {
+                TargetOs::Windows => assert!(r.starts_with("ANGLE ("), "{r}"),
+                TargetOs::Macos => assert!(!r.starts_with("ANGLE ("), "{r}"),
+                TargetOs::Linux => assert!(!r.starts_with("ANGLE (Direct3D"), "{r}"),
+            }
+            assert!(!is_software_gpu(r), "{r}");
         }
+    }
+
+    #[test]
+    fn the_webgl_identity_follows_the_presets_own_gpu_when_it_was_recorded() {
+        let mut followed = 0;
+        for e in library() {
+            let (p, os) = preset(&e.id).unwrap();
+            let own = p.webgl.as_ref().unwrap();
+            let c = build_config(p, os, &ctx("any"));
+            if c["webGl:renderer"].as_str() == own.unmasked_renderer.as_deref() {
+                assert_eq!(c["webGl:vendor"].as_str(), own.unmasked_vendor.as_deref(), "{}", e.id);
+                followed += 1;
+            }
+        }
+        assert_eq!(followed, library().len(), "every offered preset has a recording behind its own GPU");
+    }
+
+    #[test]
+    fn the_webgl_identity_is_stable_per_profile_and_the_data_is_sane() {
+        let (p, os) = preset("cf-win-0").unwrap();
+        let a = build_config(p, os, &ctx("profile-a"));
+        assert_eq!(a["webGl:parameters"], build_config(p, os, &ctx("profile-a"))["webGl:parameters"]);
+        assert!(webgl_devices().len() >= 30);
+        for os in ["windows", "macos", "linux"] {
+            assert!(webgl_devices().iter().any(|d| d.os == os), "no recorded device for {os}");
+        }
+        assert!(webgl_devices().iter().all(|d| d.weight > 0.0 && !d.config.is_empty()));
     }
 
     #[test]
