@@ -632,6 +632,8 @@
   "rail.api": "API",
   "rail.automation": "Tự động hoá",
   "rail.bookmarks": "Dấu trang",
+  "rail.collapse": "Thu gọn menu",
+  "rail.expand": "Mở rộng menu",
   "rail.extensions": "Tiện ích",
   "rail.fingerprints": "Fingerprint",
   "rail.label": "Chính",

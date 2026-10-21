@@ -11,11 +11,15 @@ import { ApiDialog } from "./ApiDialog";
 
 type Destination = { id: Section; icon: IconName; label: string };
 
-/// The 80px navigation rail. Profiles first, then Proxies; the rest follow in the order people reach for them.
+/// The navigation rail. Wide it shows icon and label side by side; collapsed it is an icon column
+/// (the label stays in the DOM for assistive tech and as a tooltip). Profiles first, then Proxies;
+/// the rest follow in the order people reach for them.
 export function AppRail() {
   const t = useT();
   const section = useNav((s) => s.section);
   const setSection = useNav((s) => s.setSection);
+  const wide = useNav((s) => s.railWide);
+  const toggleRail = useNav((s) => s.toggleRail);
   const newProfile = useProfile((s) => s.newProfile);
   const { resolvedTheme, setTheme } = useTheme();
   const [update, setUpdate] = useState<RtUpdate | null>(null);
@@ -41,10 +45,11 @@ export function AppRail() {
       type="button"
       className={section === d.id ? "rail-btn is-active" : "rail-btn"}
       aria-current={section === d.id ? "page" : undefined}
+      title={wide ? undefined : d.label}
       onClick={() => setSection(d.id)}
     >
       <span className="pillbox"><Icon name={d.icon} /></span>
-      {d.label}
+      <span className="lbl">{d.label}</span>
     </button>
   );
 
@@ -61,34 +66,56 @@ export function AppRail() {
   const dark = resolvedTheme === "dark";
   return (
     <div className="hv" style={{ height: "100%" }}>
-      <nav className="rail" aria-label={t("rail.label")}>
-        <div className="logo" role="img" aria-label="HeroV Browser" title="HeroV Browser"><HeroVMark /></div>
+      <nav className={wide ? "rail is-wide" : "rail"} aria-label={t("rail.label")}>
+        <div className="logo-row">
+          <div className="logo" role="img" aria-label="HeroV Browser" title="HeroV Browser"><HeroVMark /></div>
+          <span className="logo-text" aria-hidden="true">HeroV</span>
+        </div>
         <div className="new-split">
           <button type="button" aria-label={t("rail.newProfile")} title={t("rail.newProfile")} onClick={startNewProfile}>
             <Icon name="plus" />
+            <span className="lbl" aria-hidden="true">{t("rail.newProfile")}</span>
           </button>
         </div>
         {destinations.map(go)}
         <div className="spacer" />
-        <button type="button" className="rail-btn" onClick={() => setApiOpen(true)}>
+        <button type="button" className="rail-btn" title={wide ? undefined : t("rail.api")} onClick={() => setApiOpen(true)}>
           <span className="pillbox"><Icon name="link" /></span>
-          {t("rail.api")}
+          <span className="lbl">{t("rail.api")}</span>
         </button>
         {go({ id: "settings", icon: "gear", label: t("rail.settings") })}
         <button
           type="button"
           className={section === "patchlog" ? "rail-btn is-active" : "rail-btn"}
           aria-current={section === "patchlog" ? "page" : undefined}
-          title={update?.update_available ? t("rail.updateAvailable") : undefined}
+          title={update?.update_available ? t("rail.updateAvailable") : wide ? undefined : t("rail.whatsNew")}
           onClick={whatsNew}
         >
           <span className="pillbox"><Icon name="doc" /></span>
-          {t("rail.whatsNew")}
+          <span className="lbl">{t("rail.whatsNew")}</span>
           {update?.update_available && <span className="badge-dot" role="img" aria-label={t("rail.updateAvailable")} />}
         </button>
-        <button type="button" className="rail-btn" aria-label={t("rail.themeToggle")} aria-pressed={dark} onClick={() => setTheme(dark ? "light" : "dark")}>
+        <button
+          type="button"
+          className="rail-btn"
+          aria-label={t("rail.themeToggle")}
+          aria-pressed={dark}
+          title={wide ? undefined : t("rail.theme")}
+          onClick={() => setTheme(dark ? "light" : "dark")}
+        >
           <span className="pillbox"><Icon name={dark ? "sun" : "moon"} /></span>
-          {t("rail.theme")}
+          <span className="lbl">{t("rail.theme")}</span>
+        </button>
+        <button
+          type="button"
+          className="rail-btn"
+          aria-label={wide ? t("rail.collapse") : t("rail.expand")}
+          aria-expanded={wide}
+          title={wide ? t("rail.collapse") : t("rail.expand")}
+          onClick={toggleRail}
+        >
+          <span className="pillbox"><Icon name="menu" /></span>
+          <span className="lbl">{t("rail.collapse")}</span>
         </button>
       </nav>
       <ApiDialog open={apiOpen} onClose={() => setApiOpen(false)} />

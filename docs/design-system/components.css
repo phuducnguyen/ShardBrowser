@@ -55,6 +55,30 @@ button { cursor: pointer; }
 @media (max-height: 860px) { .rail { gap: 2px; padding: 12px 0 10px; } .logo { margin-bottom: 6px; } .new-split { margin-bottom: 8px; } }
 .rail-btn .badge-dot { position: absolute; top: 2px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--error); box-shadow: 0 0 0 2px var(--rail-bg); }
 
+/* collapsed rail: icon column, labels live on as tooltips (title) and for assistive tech */
+.logo-row { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.logo-row .logo { margin-bottom: 0; }
+.logo-text { display: none; font-weight: 800; font-size: 20px; letter-spacing: -.015em; color: var(--on-surface); }
+.rail:not(.is-wide) .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.rail:not(.is-wide) .rail-btn { height: 44px; padding: 6px 0; justify-content: center; }
+
+/* wide rail: icon and label on one row, the active row tinted end to end */
+.rail.is-wide { align-items: stretch; padding-inline: 12px; }
+.rail.is-wide .logo-row { justify-content: flex-start; gap: 10px; padding: 0 4px; }
+.rail.is-wide .logo-text { display: block; }
+.rail.is-wide .new-split { width: 100%; }
+.rail.is-wide .new-split button { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 14px; }
+.rail.is-wide .rail-btn {
+  width: 100%; height: 44px; padding: 0 12px; flex-direction: row; justify-content: flex-start; gap: 12px;
+  font-size: 14px; letter-spacing: 0; border-radius: var(--r-md); transition: background var(--dur-fast), color var(--dur-fast);
+}
+.rail.is-wide .rail-btn .pillbox { width: auto; height: auto; border-radius: 0; background: transparent; overflow: visible; }
+.rail.is-wide .rail-btn .pillbox::before { display: none; }
+.rail.is-wide .rail-btn:hover { background: var(--hover); } .rail.is-wide .rail-btn:active { background: var(--press); }
+.rail.is-wide .rail-btn.is-active { background: var(--tint-strong); color: var(--on-tint); }
+.rail.is-wide .rail-btn.is-active .pillbox { background: transparent; }
+.rail.is-wide .rail-btn .badge-dot { top: 50%; right: 14px; margin-top: -4px; }
+
 /* ---------- page frame ---------- */
 .main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 .topbar { display: flex; align-items: center; gap: var(--sp-3); padding: 18px 28px 10px; }

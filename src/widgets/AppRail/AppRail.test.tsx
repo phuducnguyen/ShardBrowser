@@ -32,7 +32,7 @@ describe("AppRail", () => {
   it("puts Profiles first and Proxies second", () => {
     const { nav } = renderRail();
     const labels = within(nav).getAllByRole("button").map((b) => b.textContent?.trim());
-    expect(labels.slice(0, 3)).toEqual(["", "Profiles", "Proxies"]); // the first button is "+", it has no text
+    expect(labels.slice(0, 3)).toEqual(["New profile", "Profiles", "Proxies"]); // the first button is "+ New profile"
     expect(labels).toEqual(expect.arrayContaining(["Fingerprints", "Extensions", "Bookmarks", "Automation", "Trash", "API", "Settings", "What's new", "Theme"]));
   });
 
@@ -65,6 +65,30 @@ describe("AppRail", () => {
     await user.click(screen.getByRole("button", { name: "New profile" }));
     expect(useNav.getState().section).toBe("browsers");
     expect(newProfile).toHaveBeenCalledTimes(1);
+  });
+
+  describe("collapsing", () => {
+    beforeEach(() => { localStorage.removeItem("herov.rail.wide"); useNav.setState({ railWide: true }); });
+
+    it("starts wide and collapses to an icon column that keeps tooltips", async () => {
+      const { user, nav } = renderRail();
+      expect(nav).toHaveClass("is-wide");
+      expect(within(nav).getByRole("button", { name: "Proxies" })).not.toHaveAttribute("title");
+      await user.click(within(nav).getByRole("button", { name: "Collapse menu" }));
+      expect(nav).not.toHaveClass("is-wide");
+      expect(useNav.getState().railWide).toBe(false);
+      expect(within(nav).getByRole("button", { name: "Proxies" })).toHaveAttribute("title", "Proxies");
+      expect(within(nav).getByRole("button", { name: "Expand menu" })).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("remembers the choice and expands again", async () => {
+      const { user, nav } = renderRail();
+      await user.click(within(nav).getByRole("button", { name: "Collapse menu" }));
+      expect(localStorage.getItem("herov.rail.wide")).toBe("0");
+      await user.click(within(nav).getByRole("button", { name: "Expand menu" }));
+      expect(nav).toHaveClass("is-wide");
+      expect(localStorage.getItem("herov.rail.wide")).toBe("1");
+    });
   });
 
   describe("What's new", () => {

@@ -1250,6 +1250,8 @@
   "rail.api": "API",
   "rail.automation": "自动化",
   "rail.bookmarks": "书签",
+  "rail.collapse": "收起菜单",
+  "rail.expand": "展开菜单",
   "rail.extensions": "扩展",
   "rail.fingerprints": "指纹",
   "rail.label": "主导航",

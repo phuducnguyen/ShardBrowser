@@ -29,6 +29,7 @@ const HEROV_WINDOWS: Section[] = ["browsers", "proxies", "fingerprints", "extens
 
 export function App() {
   const section = useNav((s) => s.section);
+  const railWide = useNav((s) => s.railWide);
   const windowed = HEROV_WINDOWS.includes(section);
 
   useEffect(() => { void trackSection(section); }, [section]);
@@ -43,8 +44,11 @@ export function App() {
       <WhatsNewGate />
       <FirstRunGate>
         <div
-          className="grid overflow-hidden bg-bg-weak-50 [grid-template-columns:80px_1fr] [grid-template-rows:minmax(0,1fr)]"
-          style={{ height: "100vh", paddingTop: "var(--titlebar-h)" }}
+          className="grid overflow-hidden bg-bg-weak-50 [grid-template-rows:minmax(0,1fr)]"
+          style={{
+            height: "100vh", paddingTop: "var(--titlebar-h)",
+            gridTemplateColumns: `${railWide ? 216 : 72}px 1fr`, transition: "grid-template-columns .2s cubic-bezier(.2,0,0,1)",
+          }}
         >
           <AppRail />
           <main className={windowed ? "min-h-0 min-w-0 overflow-hidden" : "overflow-y-auto px-7 py-6"}>

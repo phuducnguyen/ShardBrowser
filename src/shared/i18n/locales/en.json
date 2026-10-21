@@ -1250,6 +1250,8 @@
   "rail.api": "API",
   "rail.automation": "Automation",
   "rail.bookmarks": "Bookmarks",
+  "rail.collapse": "Collapse menu",
+  "rail.expand": "Expand menu",
   "rail.extensions": "Extensions",
   "rail.fingerprints": "Fingerprints",
   "rail.label": "Primary",
