@@ -2263,6 +2263,7 @@ pub fn run() {
             runtime::launcher_update_check,
             camoufox::camoufox_status,
             camoufox::camoufox_install,
+            camoufox::camoufox_library,
         ])
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());

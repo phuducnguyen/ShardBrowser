@@ -6,6 +6,7 @@
 //!
 //! Spec: docs/specs/second-engine-camoufox.md (work packages CF1 to CF7).
 
+pub mod config;
 pub mod install;
 
 use crate::launch::LaunchOutcome;
@@ -16,6 +17,12 @@ use tauri::Window;
 #[tauri::command]
 pub async fn camoufox_status() -> Result<install::CamoufoxStatus, String> {
     Ok(install::status())
+}
+
+/// The recorded Firefox devices a Camoufox profile can wear.
+#[tauri::command]
+pub async fn camoufox_library() -> Result<Vec<config::LibraryEntry>, String> {
+    Ok(config::library())
 }
 
 /// Download and install the pinned release (resumable). Progress arrives as `camoufox:progress`.
@@ -35,3 +42,4 @@ pub async fn launch(profile_id: &str, _headless: bool) -> Result<LaunchOutcome> 
         "Camoufox profiles cannot start yet (profile {profile_id}); launching arrives in the next update."
     )
 }
+

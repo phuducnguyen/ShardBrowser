@@ -1,0 +1,646 @@
+//! CF3: turn a recorded Firefox fingerprint into the configuration Camoufox reads at start-up.
+//!
+//! Camoufox takes its identity from the environment variables `CAMOU_CONFIG_1..N` (the JSON config
+//! cut into pieces) and extra Firefox prefs from `CAMOU_PREFS_1..N`. This module builds both. The
+//! property names are Camoufox's own; a test checks every key written here against the property
+//! list of the Camoufox build the launcher installs (`data/known-keys.txt`).
+//!
+//! Source data (`data/`) is from the Camoufox Python package (MIT), see `data/NOTICE.md`.
+//!
+//! What this first version does not do, on purpose: it leaves WebGL alone. The recorded devices
+//! carry a GPU name but not the matching WebGL parameter set, and a GPU name that disagrees with
+//! the parameters is a worse tell than the host's real graphics card, which is coherent with
+//! itself. Matching WebGL identities are a later package.
+
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+use std::net::IpAddr;
+use std::sync::OnceLock;
+
+/// Firefox major version of the pinned Camoufox build; recorded user agents are moved to it.
+pub const FIREFOX_MAJOR: u32 = 158;
+
+/// Length of one `CAMOU_CONFIG_n` piece. Windows reads the environment through the ANSI code page
+/// and caps a value at 2047 characters; elsewhere 32767.
+pub fn chunk_size() -> usize {
+    if cfg!(windows) { 2047 } else { 32767 }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TargetOs {
+    Windows,
+    Macos,
+    Linux,
+}
+
+impl TargetOs {
+    pub fn from_platform(platform: &str) -> Self {
+        if platform == "Win32" {
+            TargetOs::Windows
+        } else if platform.to_ascii_lowercase().contains("linux") {
+            TargetOs::Linux
+        } else {
+            TargetOs::Macos
+        }
+    }
+
+    fn short(self) -> &'static str {
+        match self {
+            TargetOs::Windows => "win",
+            TargetOs::Macos => "mac",
+            TargetOs::Linux => "lin",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            TargetOs::Windows => "Windows",
+            TargetOs::Macos => "macOS",
+            TargetOs::Linux => "Linux",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Nav {
+    pub user_agent: String,
+    pub platform: String,
+    pub hardware_concurrency: Option<u32>,
+    pub max_touch_points: Option<u32>,
+    pub oscpu: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenSpec {
+    pub width: u32,
+    pub height: u32,
+    pub color_depth: Option<u32>,
+    pub avail_width: Option<u32>,
+    pub avail_height: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebglSpec {
+    pub unmasked_vendor: Option<String>,
+    pub unmasked_renderer: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Preset {
+    pub navigator: Nav,
+    pub screen: ScreenSpec,
+    #[serde(default)]
+    pub webgl: Option<WebglSpec>,
+    #[serde(default, rename = "speechVoices")]
+    pub speech_voices: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct PresetFile {
+    presets: PresetGroups,
+}
+
+#[derive(Deserialize)]
+struct PresetGroups {
+    windows: Vec<Preset>,
+    macos: Vec<Preset>,
+    linux: Vec<Preset>,
+}
+
+const PRESETS_JSON: &str = include_str!("data/fingerprint-presets.json");
+const FONT_BASES_JSON: &str = include_str!("data/font-bases.json");
+
+fn all_presets() -> &'static Vec<(String, TargetOs, Preset)> {
+    static CELL: OnceLock<Vec<(String, TargetOs, Preset)>> = OnceLock::new();
+    CELL.get_or_init(|| {
+        let file: PresetFile = serde_json::from_str(PRESETS_JSON).expect("bundled presets parse");
+        let mut out = Vec::new();
+        for (os, list) in [
+            (TargetOs::Windows, file.presets.windows),
+            (TargetOs::Macos, file.presets.macos),
+            (TargetOs::Linux, file.presets.linux),
+        ] {
+            for (i, p) in list.into_iter().enumerate() {
+                out.push((format!("cf-{}-{i}", os.short()), os, p));
+            }
+        }
+        out
+    })
+}
+
+/// One recorded device as the interface lists it.
+#[derive(Debug, Clone, Serialize)]
+pub struct LibraryEntry {
+    pub id: String,
+    pub os: TargetOs,
+    pub label: String,
+    pub screen: (u32, u32),
+    pub cores: Option<u32>,
+    pub gpu: String,
+}
+
+/// "ANGLE (Intel, Intel(R) HD Graphics 400 Direct3D11 vs_5_0 ps_5_0), or similar" -> "Intel(R) HD Graphics 400".
+pub fn short_gpu(renderer: &str) -> String {
+    let s = renderer.trim();
+    let s = s.strip_suffix(", or similar").unwrap_or(s);
+    if let Some(inner) = s.strip_prefix("ANGLE (").and_then(|x| x.strip_suffix(')')) {
+        // "Vendor, Model Direct3D11 vs_5_0 ps_5_0" (the model itself may contain parentheses)
+        let model = inner.split_once(", ").map(|(_, m)| m).unwrap_or(inner);
+        let cut = [" Direct3D", " vs_", " OpenGL"].iter().filter_map(|m| model.find(m)).min().unwrap_or(model.len());
+        let name = model[..cut].trim();
+        if !name.is_empty() {
+            return name.to_string();
+        }
+    }
+    s.to_string()
+}
+
+pub fn library() -> Vec<LibraryEntry> {
+    all_presets()
+        .iter()
+        .map(|(id, os, p)| {
+            let gpu = p
+                .webgl
+                .as_ref()
+                .and_then(|w| w.unmasked_renderer.as_deref())
+                .map(short_gpu)
+                .unwrap_or_default();
+            LibraryEntry {
+                id: id.clone(),
+                os: *os,
+                label: format!("{} · {}×{} · {}", os.label(), p.screen.width, p.screen.height, if gpu.is_empty() { "unknown GPU" } else { &gpu }),
+                screen: (p.screen.width, p.screen.height),
+                cores: p.navigator.hardware_concurrency,
+                gpu,
+            }
+        })
+        .collect()
+}
+
+pub fn preset(id: &str) -> Option<(&'static Preset, TargetOs)> {
+    all_presets().iter().find(|(i, _, _)| i == id).map(|(_, os, p)| (p, *os))
+}
+
+/// What the launcher knows about the profile's surroundings when it starts it.
+#[derive(Debug, Clone, Default)]
+pub struct Context<'a> {
+    /// Keeps the per-profile draws (audio seed, font base) the same on every launch.
+    pub profile_id: &'a str,
+    /// BCP-47 language of the proxy's country, e.g. "pt-BR".
+    pub locale: Option<&'a str>,
+    /// IANA zone of the proxy's location.
+    pub timezone: Option<&'a str>,
+    pub geolocation: Option<(f64, f64)>,
+    /// The address pages will see; WebRTC is told to report it.
+    pub public_ip: Option<IpAddr>,
+}
+
+fn fnv64(s: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in s.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+/// Replace the version in `Firefox/NNN.0` and `rv:NNN.0` so the user agent names the build that runs.
+pub fn patch_version(ua: &str, major: u32) -> String {
+    let mut out = ua.to_string();
+    for marker in ["Firefox/", "rv:"] {
+        if let Some(at) = out.find(marker) {
+            let start = at + marker.len();
+            let digits = out[start..].chars().take_while(|c| c.is_ascii_digit()).count();
+            if digits > 0 {
+                out.replace_range(start..start + digits, &major.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// The `navigator.appVersion` Firefox reports for a user agent: "5.0 (<OS tokens>)", without the
+/// architecture, the Gecko revision or the Windows build.
+pub fn app_version(ua: &str) -> Option<String> {
+    let rest = ua.strip_prefix("Mozilla/5.0 (")?;
+    let block = &rest[..rest.find(')')?];
+    let kept: Vec<String> = block
+        .split(';')
+        .map(str::trim)
+        .filter(|t| !(t.starts_with("rv:") || matches!(*t, "Win64" | "x64" | "Mobile" | "Tablet") || t.starts_with("Linux ") || t.starts_with("Intel Mac OS X")))
+        .map(|t| if t.starts_with("Windows") { "Windows".to_string() } else { t.to_string() })
+        .collect();
+    if kept.is_empty() { None } else { Some(format!("5.0 ({})", kept.join("; "))) }
+}
+
+fn oscpu_for(platform: &str, os: TargetOs) -> Option<&'static str> {
+    if platform == "MacIntel" {
+        return Some("Intel Mac OS X 10.15");
+    }
+    match os {
+        TargetOs::Windows => Some("Windows NT 10.0; Win64; x64"),
+        TargetOs::Linux => Some("Linux x86_64"),
+        TargetOs::Macos => None,
+    }
+}
+
+fn voice_uri(os: TargetOs, name: &str, lang: &str) -> String {
+    match os {
+        TargetOs::Windows => format!("urn:moz-tts:sapi:{name}?{lang}"),
+        TargetOs::Linux => {
+            let mut esc = String::new();
+            for ch in name.chars() {
+                if ch == ' ' {
+                    esc.push_str("%20");
+                } else if ch.is_ascii() {
+                    esc.push(ch);
+                } else {
+                    let mut buf = [0u8; 4];
+                    for b in ch.encode_utf8(&mut buf).bytes() {
+                        esc.push_str(&format!("%{b:02X}"));
+                    }
+                }
+            }
+            format!("urn:moz-tts:speechd:{esc}?{lang}")
+        }
+        // Approximate: the real identifiers come from a catalogue of stock macOS that is not bundled.
+        TargetOs::Macos => {
+            let ascii: String = name.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+            format!("urn:moz-tts:osx:com.apple.voice.compact.{lang}.{ascii}")
+        }
+    }
+}
+
+/// Recorded voices are "Name:lang:local|remote" strings; Camoufox wants objects.
+pub fn voices(entries: &[String], os: TargetOs) -> Vec<Value> {
+    let mut out: Vec<Value> = Vec::new();
+    for e in entries {
+        let Some(last) = e.rfind(':') else { continue };
+        let (before, kind) = (&e[..last], &e[last + 1..]);
+        let Some(sep) = before.rfind(':') else { continue };
+        let (name, lang) = (&before[..sep], &before[sep + 1..]);
+        if name.is_empty() || lang.is_empty() {
+            continue;
+        }
+        out.push(json!({
+            "name": name,
+            "lang": lang,
+            "voiceUri": voice_uri(os, name, lang),
+            "isDefault": false,
+            "isLocalService": kind == "local",
+        }));
+    }
+    if let Some(first) = out.first_mut() {
+        first["isDefault"] = Value::Bool(true);
+    }
+    out
+}
+
+/// The OS font base for this profile: one of the recorded sets, picked by weight from the profile id.
+fn font_base(os: TargetOs, profile_id: &str) -> Vec<String> {
+    static BASES: OnceLock<Value> = OnceLock::new();
+    let bases = BASES.get_or_init(|| serde_json::from_str(FONT_BASES_JSON).expect("bundled font bases parse"));
+    let Some(list) = bases.get(os.short()).and_then(|v| v.as_array()) else { return Vec::new() };
+    let total: f64 = list.iter().map(|b| b.get("weight").and_then(|w| w.as_f64()).unwrap_or(1.0)).sum();
+    if list.is_empty() || total <= 0.0 {
+        return Vec::new();
+    }
+    let mut roll = (fnv64(&format!("{profile_id}::fonts")) % 1_000_000) as f64 / 1_000_000.0 * total;
+    let mut pick = &list[0];
+    for b in list {
+        let w = b.get("weight").and_then(|w| w.as_f64()).unwrap_or(1.0);
+        if roll < w {
+            pick = b;
+            break;
+        }
+        roll -= w;
+    }
+    pick.get("fonts")
+        .and_then(|f| f.as_array())
+        .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+        .unwrap_or_default()
+}
+
+/// Split "pt-BR" or "zh-Hans-CN" into (language, script, region).
+fn split_locale(tag: &str) -> (String, Option<String>, Option<String>) {
+    let mut language = String::new();
+    let (mut script, mut region) = (None, None);
+    for (i, part) in tag.split(['-', '_']).enumerate() {
+        if i == 0 {
+            language = part.to_ascii_lowercase();
+        } else if part.len() == 4 && part.chars().all(|c| c.is_ascii_alphabetic()) {
+            let mut c = part.chars();
+            script = c.next().map(|f| f.to_ascii_uppercase().to_string() + &c.as_str().to_ascii_lowercase());
+        } else if part.len() == 2 || (part.len() == 3 && part.chars().all(|c| c.is_ascii_digit())) {
+            region = Some(part.to_ascii_uppercase());
+        }
+    }
+    (language, script, region)
+}
+
+/// The `CAMOU_CONFIG` map for one profile.
+pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String, Value> {
+    let mut c = Map::new();
+    let nav = &preset.navigator;
+    let ua = patch_version(&nav.user_agent, FIREFOX_MAJOR);
+    c.insert("navigator.userAgent".into(), json!(ua));
+    c.insert("navigator.platform".into(), json!(nav.platform));
+    if let Some(n) = nav.hardware_concurrency {
+        c.insert("navigator.hardwareConcurrency".into(), json!(n));
+    }
+    if let Some(o) = nav.oscpu.as_deref().or_else(|| oscpu_for(&nav.platform, os)) {
+        c.insert("navigator.oscpu".into(), json!(o));
+    }
+    if let Some(v) = app_version(&ua) {
+        c.insert("navigator.appVersion".into(), json!(v));
+    }
+    if let Some(n) = nav.max_touch_points {
+        c.insert("navigator.maxTouchPoints".into(), json!(n));
+    }
+
+    let s = &preset.screen;
+    c.insert("screen.width".into(), json!(s.width));
+    c.insert("screen.height".into(), json!(s.height));
+    if let Some(d) = s.color_depth {
+        c.insert("screen.colorDepth".into(), json!(d));
+        c.insert("screen.pixelDepth".into(), json!(d));
+    }
+    if let Some(w) = s.avail_width {
+        c.insert("screen.availWidth".into(), json!(w));
+    }
+    if let Some(h) = s.avail_height {
+        c.insert("screen.availHeight".into(), json!(h));
+    }
+
+    // Per profile and stable across launches (a zero seed would mean "no noise").
+    let seed = (fnv64(&format!("{}::audio", ctx.profile_id)) % 4_294_967_295) as u32 + 1;
+    c.insert("audio:seed".into(), json!(seed));
+
+    let fonts = font_base(os, ctx.profile_id);
+    if !fonts.is_empty() {
+        c.insert("fonts".into(), json!(fonts));
+    }
+    let v = voices(&preset.speech_voices, os);
+    if !v.is_empty() {
+        c.insert("voices".into(), Value::Array(v));
+    }
+
+    if let Some(tz) = ctx.timezone {
+        c.insert("timezone".into(), json!(tz));
+    }
+    if let Some(tag) = ctx.locale {
+        let (lang, script, region) = split_locale(tag);
+        if !lang.is_empty() {
+            c.insert("locale:language".into(), json!(lang));
+            if let Some(r) = &region {
+                c.insert("locale:region".into(), json!(r));
+            }
+            if let Some(sc) = &script {
+                c.insert("locale:script".into(), json!(sc));
+            }
+            let nav_lang = match &region {
+                Some(r) => format!("{lang}-{r}"),
+                None => lang.clone(),
+            };
+            c.insert("navigator.language".into(), json!(nav_lang));
+        }
+    }
+    if let Some((lat, lon)) = ctx.geolocation {
+        c.insert("geolocation:latitude".into(), json!(lat));
+        c.insert("geolocation:longitude".into(), json!(lon));
+    }
+    match ctx.public_ip {
+        Some(IpAddr::V4(ip)) => {
+            c.insert("webrtc:ipv4".into(), json!(ip.to_string()));
+        }
+        Some(IpAddr::V6(ip)) => {
+            c.insert("webrtc:ipv6".into(), json!(ip.to_string()));
+        }
+        None => {}
+    }
+    c
+}
+
+/// Prefs Camoufox applies at start-up (through `CAMOU_PREFS_n`).
+pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
+    let mut p = Map::new();
+    // The browser's own UI language follows the spoofed one; empty would follow the host.
+    let requested = match ctx.locale {
+        Some(tag) => {
+            let (lang, script, region) = split_locale(tag);
+            [Some(lang), script, region].into_iter().flatten().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-")
+        }
+        None => String::new(),
+    };
+    p.insert("intl.locale.requested".into(), json!(if requested.is_empty() { "en-US".to_string() } else { requested }));
+    p.insert("privacy.donottrackheader.enabled".into(), json!(false));
+    p.insert("privacy.globalprivacycontrol.enabled".into(), json!(false));
+    if ctx.geolocation.is_some() {
+        // A position handed out without a prompt must also read as "granted" through the Permissions API.
+        p.insert("permissions.default.geo".into(), json!(1));
+    }
+    p
+}
+
+/// JSON with every non-ASCII character written as `\uXXXX`. Windows reads environment values through
+/// the ANSI code page, which would mangle raw UTF-8; the escapes survive it and the browser's
+/// `JSON.parse` restores them.
+pub fn ascii_json(v: &Value) -> String {
+    let raw = serde_json::to_string(v).unwrap_or_default();
+    let mut out = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        if ch.is_ascii() {
+            out.push(ch);
+        } else {
+            let mut units = [0u16; 2];
+            for u in ch.encode_utf16(&mut units) {
+                out.push_str(&format!("\\u{u:04x}"));
+            }
+        }
+    }
+    out
+}
+
+/// `PREFIX_1..N` environment variables holding `value` cut into `chunk` characters.
+pub fn chunked_env(prefix: &str, value: &Value, chunk: usize) -> Vec<(String, String)> {
+    let text = ascii_json(value);
+    let bytes = text.as_bytes(); // ASCII only after ascii_json, so bytes are characters
+    bytes
+        .chunks(chunk.max(1))
+        .enumerate()
+        .map(|(i, part)| (format!("{prefix}_{}", i + 1), String::from_utf8_lossy(part).into_owned()))
+        .collect()
+}
+
+/// Everything a Camoufox process needs in its environment for this profile.
+pub fn env_vars(config: &Map<String, Value>, prefs: &Map<String, Value>) -> Vec<(String, String)> {
+    let mut v = chunked_env("CAMOU_CONFIG", &Value::Object(config.clone()), chunk_size());
+    if !prefs.is_empty() {
+        v.extend(chunked_env("CAMOU_PREFS", &Value::Object(prefs.clone()), chunk_size()));
+    }
+    v
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const KNOWN_KEYS: &str = include_str!("data/known-keys.txt");
+
+    fn known() -> std::collections::HashSet<&'static str> {
+        KNOWN_KEYS.lines().filter(|l| !l.is_empty()).collect()
+    }
+
+    fn ctx<'a>(id: &'a str) -> Context<'a> {
+        Context { profile_id: id, ..Default::default() }
+    }
+
+    #[test]
+    fn the_library_has_the_113_recorded_devices() {
+        let lib = library();
+        assert_eq!(lib.len(), 113);
+        let count = |os| lib.iter().filter(|e| e.os == os).count();
+        assert_eq!((count(TargetOs::Windows), count(TargetOs::Macos), count(TargetOs::Linux)), (71, 25, 17));
+        let ids: std::collections::HashSet<_> = lib.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids.len(), lib.len(), "ids are unique");
+        assert!(lib.iter().all(|e| preset(&e.id).is_some()));
+    }
+
+    #[test]
+    fn every_key_written_is_a_property_of_the_installed_camoufox() {
+        let known = known();
+        assert!(known.len() > 100, "known-keys.txt looks empty");
+        let c = Context {
+            profile_id: "p", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"),
+            geolocation: Some((-23.55, -46.63)), public_ip: Some("203.0.113.7".parse().unwrap()),
+        };
+        for e in library() {
+            let (p, os) = preset(&e.id).unwrap();
+            for k in build_config(p, os, &c).keys() {
+                assert!(known.contains(k.as_str()), "{} writes `{k}`, which Camoufox does not know", e.id);
+            }
+        }
+    }
+
+    #[test]
+    fn the_user_agent_names_the_build_that_runs() {
+        let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0";
+        assert_eq!(
+            patch_version(ua, 158),
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
+        );
+        for e in library() {
+            let (p, os) = preset(&e.id).unwrap();
+            let cfg = build_config(p, os, &ctx("x"));
+            let got = cfg["navigator.userAgent"].as_str().unwrap();
+            assert!(got.contains("Firefox/158.0") && got.contains("rv:158.0"), "{got}");
+        }
+    }
+
+    #[test]
+    fn app_version_follows_the_user_agent() {
+        assert_eq!(app_version("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0").as_deref(), Some("5.0 (Windows)"));
+        assert_eq!(app_version("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0").as_deref(), Some("5.0 (X11; Ubuntu)"));
+        assert_eq!(app_version("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0").as_deref(), Some("5.0 (Macintosh)"));
+        assert_eq!(app_version("not a user agent"), None);
+    }
+
+    #[test]
+    fn identity_draws_are_stable_per_profile_and_differ_between_profiles() {
+        let (p, os) = preset("cf-win-0").unwrap();
+        let a1 = build_config(p, os, &ctx("profile-a"));
+        let a2 = build_config(p, os, &ctx("profile-a"));
+        let b = build_config(p, os, &ctx("profile-b"));
+        assert_eq!(a1["audio:seed"], a2["audio:seed"]);
+        assert_eq!(a1["fonts"], a2["fonts"]);
+        assert_ne!(a1["audio:seed"], b["audio:seed"]);
+        assert!(a1["audio:seed"].as_u64().unwrap() >= 1, "0 would switch the noise off");
+    }
+
+    #[test]
+    fn the_host_graphics_are_left_alone() {
+        for e in library() {
+            let (p, os) = preset(&e.id).unwrap();
+            assert!(build_config(p, os, &ctx("x")).keys().all(|k| !k.starts_with("webGl")), "{}", e.id);
+        }
+    }
+
+    #[test]
+    fn windows_profiles_get_a_windows_font_base() {
+        let (p, os) = preset("cf-win-0").unwrap();
+        let fonts = build_config(p, os, &ctx("x"))["fonts"].as_array().unwrap().clone();
+        assert!(fonts.iter().any(|f| f == "Arial"));
+        assert!(!fonts.iter().any(|f| f == "Helvetica Neue"), "a Mac font on a Windows identity");
+    }
+
+    #[test]
+    fn recorded_voices_become_objects_with_a_default() {
+        let v = voices(&["Microsoft David - English (United States):en-US:local".into(), "Zira:en-US:remote".into()], TargetOs::Windows);
+        assert_eq!(v[0]["name"], "Microsoft David - English (United States)");
+        assert_eq!(v[0]["voiceUri"], "urn:moz-tts:sapi:Microsoft David - English (United States)?en-US");
+        assert_eq!(v[0]["isLocalService"], true);
+        assert_eq!(v[0]["isDefault"], true);
+        assert_eq!(v[1]["isLocalService"], false);
+        assert_eq!(v[1]["isDefault"], false);
+        let lin = voices(&["Amélie Voice:fr-CA:local".into()], TargetOs::Linux);
+        assert_eq!(lin[0]["voiceUri"], "urn:moz-tts:speechd:Am%C3%A9lie%20Voice?fr-CA");
+        assert!(voices(&["broken".into()], TargetOs::Windows).is_empty());
+    }
+
+    #[test]
+    fn locale_and_location_come_from_the_context() {
+        let (p, os) = preset("cf-win-0").unwrap();
+        let c = Context { profile_id: "x", locale: Some("pt-BR"), timezone: Some("America/Sao_Paulo"), geolocation: Some((-23.5, -46.6)), public_ip: Some("2001:db8::1".parse().unwrap()) };
+        let cfg = build_config(p, os, &c);
+        assert_eq!(cfg["locale:language"], "pt");
+        assert_eq!(cfg["locale:region"], "BR");
+        assert_eq!(cfg["navigator.language"], "pt-BR");
+        assert_eq!(cfg["timezone"], "America/Sao_Paulo");
+        assert_eq!(cfg["geolocation:latitude"], -23.5);
+        assert_eq!(cfg["webrtc:ipv6"], "2001:db8::1");
+        assert!(cfg.get("webrtc:ipv4").is_none());
+        let prefs = build_prefs(&c);
+        assert_eq!(prefs["intl.locale.requested"], "pt-BR");
+        assert_eq!(prefs["permissions.default.geo"], 1);
+        // Without a context nothing about place is claimed.
+        let bare = build_config(p, os, &ctx("x"));
+        assert!(!bare.keys().any(|k| k.starts_with("locale:") || k.starts_with("geolocation:") || k.starts_with("webrtc:") || k == "timezone"));
+        assert_eq!(build_prefs(&ctx("x"))["intl.locale.requested"], "en-US");
+        assert_eq!(split_locale("zh-Hans-CN"), ("zh".into(), Some("Hans".into()), Some("CN".into())));
+        assert_eq!(split_locale("en"), ("en".into(), None, None));
+    }
+
+    #[test]
+    fn the_config_is_cut_into_pieces_that_join_back_to_the_same_json() {
+        let (p, os) = preset("cf-win-0").unwrap();
+        let cfg = Value::Object(build_config(p, os, &ctx("x")));
+        for size in [2047usize, 64, 7] {
+            let pieces = chunked_env("CAMOU_CONFIG", &cfg, size);
+            assert!(pieces.len() > 1 || size > 2047);
+            assert!(pieces.iter().all(|(_, s)| s.len() <= size));
+            assert_eq!(pieces[0].0, "CAMOU_CONFIG_1");
+            let joined: String = pieces.iter().map(|(_, s)| s.as_str()).collect();
+            assert_eq!(serde_json::from_str::<Value>(&joined).unwrap(), cfg);
+        }
+    }
+
+    #[test]
+    fn non_ascii_text_is_escaped_and_survives_the_round_trip() {
+        let v = json!({"name": "Amélie", "emoji": "🦊", "plain": "abc"});
+        let text = ascii_json(&v);
+        assert!(text.is_ascii(), "{text}");
+        assert!(text.contains("\\u00e9") && text.contains("\\ud83e\\udd8a"), "{text}");
+        assert_eq!(serde_json::from_str::<Value>(&text).unwrap(), v);
+    }
+
+    #[test]
+    fn short_gpu_names_are_readable() {
+        assert_eq!(short_gpu("ANGLE (Intel, Intel(R) HD Graphics 400 Direct3D11 vs_5_0 ps_5_0), or similar"), "Intel(R) HD Graphics 400");
+        assert_eq!(short_gpu("Intel(R) HD Graphics 400, or similar"), "Intel(R) HD Graphics 400");
+        assert!(!library().iter().any(|e| e.gpu.contains("Direct3D") || e.gpu.contains("or similar")));
+    }
+}
