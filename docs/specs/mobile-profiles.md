@@ -69,3 +69,6 @@ Checked on the real engine (non-headless window): user agent, platform, `ontouch
 - phone font list gives a fingerprint of its own and the page text renders in an odd fallback font.
 
 Next: isolate each candidate one at a time against scanbrowser, starting with pointer capability (needs a different mechanism than the pref) and WebGL.
+
+### MP1 update (2026-10-21, later)
+Hardware now passes on scanbrowser.net for the phone profile (cause: window narrower than Firefox's minimum width; fixed with a profile stylesheet). Platform is `Linux armv81` and the renderer ends with `, or similar`, as in real Firefox-on-Android captures. **Software still flags** the phone (a recorded desktop profile passes it); likely the font fingerprint, which needs a real-device capture. Details and the generator plan: `docs/references/antidetect-generator-research.md`.

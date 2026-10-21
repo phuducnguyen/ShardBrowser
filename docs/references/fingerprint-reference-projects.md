@@ -35,3 +35,7 @@ Kept for later study (added 2026-10-19). **Read, learn ideas, do not copy.** Che
 - Engine list: ManyFaces shows Camoufox, Chromium and Android side by side, which matches spec section 8; a second engine is still a backend RFC.
 - Isolation and pinning: both projects pin identity per profile, which HeroV's *locked identity* already requires.
 - Anything that needs a Docker/Redroid Android emulator is a different product shape from HeroV's desktop engine and is out of scope unless the owner asks.
+
+## 4. Identity generator research
+
+See [antidetect-generator-research.md](antidetect-generator-research.md): Apify fingerprint-suite data, Firefox-on-Android facts, scanbrowser results.
