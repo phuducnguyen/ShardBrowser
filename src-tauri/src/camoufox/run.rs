@@ -184,6 +184,19 @@ fn closer() -> Option<crate::process::Closer> {
     }
 }
 
+/// Files the profile folder needs before start: a phone's window stylesheet, or none (a profile that
+/// was a phone and is not any more must not keep it).
+pub fn prepare_profile_dir(dir: &Path, phone: bool) -> Result<()> {
+    let css = dir.join("chrome").join("userChrome.css");
+    if phone {
+        std::fs::create_dir_all(dir.join("chrome")).context("create chrome folder")?;
+        std::fs::write(&css, config::PHONE_CHROME_CSS).context("write phone window stylesheet")?;
+    } else if css.exists() {
+        std::fs::remove_file(&css).ok();
+    }
+    Ok(())
+}
+
 pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Result<LaunchOutcome> {
     let status = install::status();
     anyhow::ensure!(status.installed, "The Camoufox engine is not installed. Install it from Settings first.");
@@ -203,6 +216,7 @@ pub async fn launch(profile_id: &str, enable_cdp: bool, headless: bool) -> Resul
         None => (None, place_direct().await),
     };
     let plan = plan(profile_id, &stored, &dir, headless, place.as_ref(), relay.as_ref().map(|r| r.port))?;
+    prepare_profile_dir(&dir, chosen_preset(&stored, profile_id)?.0.phone.is_some())?;
 
     let mut cmd = tokio::process::Command::new(&bin);
     cmd.args(&plan.args);
@@ -272,6 +286,18 @@ mod tests {
     fn joined(env: &[(String, String)], prefix: &str) -> serde_json::Value {
         let text: String = env.iter().filter(|(k, _)| k.starts_with(prefix)).map(|(_, v)| v.as_str()).collect();
         serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn a_phone_gets_its_window_stylesheet_and_a_desktop_loses_it() {
+        let dir = std::env::temp_dir().join(format!("herov-cf-css-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        prepare_profile_dir(&dir, true).unwrap();
+        let css = dir.join("chrome").join("userChrome.css");
+        assert!(std::fs::read_to_string(&css).unwrap().contains("min-width:0"));
+        prepare_profile_dir(&dir, false).unwrap();
+        assert!(!css.exists());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -383,7 +409,17 @@ mod tests {
         // As in production: a direct profile takes its time zone and language from its own address.
         let place = tokio::runtime::Runtime::new().unwrap().block_on(place_direct());
         println!("place from this address: {place:?}");
-        let p = plan("real-url", &s, &fx, false, place.as_ref(), None).unwrap();
+        let mut p = plan("real-url", &s, &fx, false, place.as_ref(), None).unwrap();
+        prepare_profile_dir(&fx, chosen_preset(&s, "real-url").unwrap().0.phone.is_some()).unwrap();
+        if let Ok(extra) = std::env::var("HEROV_CFG_JSON") {
+            // Try config changes without rebuilding; a null removes the key.
+            let mut cfg = joined(&p.env, "CAMOU_CONFIG_").as_object().cloned().unwrap();
+            for (k, v) in serde_json::from_str::<serde_json::Value>(&extra).unwrap().as_object().unwrap() {
+                if v.is_null() { cfg.remove(k); } else { cfg.insert(k.clone(), v.clone()); }
+            }
+            p.env.retain(|(k, _)| !k.starts_with("CAMOU_CONFIG_"));
+            p.env.extend(config::chunked_env("CAMOU_CONFIG", &serde_json::Value::Object(cfg), config::chunk_size()));
+        }
         let mut cmd = std::process::Command::new(&bin);
         cmd.args(&p.args).arg(&url);
         for (k, v) in &p.env { cmd.env(k, v); }
@@ -705,6 +741,7 @@ new Image().src='http://127.0.0.1:{port}/?'+encodeURIComponent(t)}},1500);
         let preset_id = std::env::var("HEROV_PHONE_PRESET").unwrap_or_else(|_| "cf-and-0".into());
         let s = stored(json!({"camoufox": {"preset": preset_id}}));
         let mut p = plan("real-phone-win", &s, &tmp.join("fx"), false, None, None).unwrap();
+        prepare_profile_dir(&tmp.join("fx"), chosen_preset(&s, "real-phone-win").unwrap().0.phone.is_some()).unwrap();
         if let Ok(extra) = std::env::var("HEROV_PREFS_JSON") {
             // Try other pref values without rebuilding.
             let mut prefs = joined(&p.env, "CAMOU_PREFS_").as_object().cloned().unwrap();
@@ -713,8 +750,18 @@ new Image().src='http://127.0.0.1:{port}/?'+encodeURIComponent(t)}},1500);
             p.env.extend(config::chunked_env("CAMOU_PREFS", &serde_json::Value::Object(prefs), config::chunk_size()));
         }
         if let Ok(js) = std::env::var("HEROV_USER_JS") { std::fs::write(tmp.join("fx").join("user.js"), js).unwrap(); }
+        if let Ok(extra) = std::env::var("HEROV_CFG_JSON") {
+            let mut cfg = joined(&p.env, "CAMOU_CONFIG_").as_object().cloned().unwrap();
+            for (k, v) in serde_json::from_str::<serde_json::Value>(&extra).unwrap().as_object().unwrap() {
+                if v.is_null() { cfg.remove(k); } else { cfg.insert(k.clone(), v.clone()); }
+            }
+            p.env.retain(|(k, _)| !k.starts_with("CAMOU_CONFIG_"));
+            p.env.extend(config::chunked_env("CAMOU_CONFIG", &serde_json::Value::Object(cfg), config::chunk_size()));
+        }
         let mut cmd = std::process::Command::new(&bin);
-        cmd.args(&p.args).arg(format!("file:///{}", page.display().to_string().replace(char::from(92), "/")));
+        cmd.args(&p.args);
+        if let Ok(extra) = std::env::var("HEROV_EXTRA_ARGS") { cmd.args(extra.split_whitespace()); }
+        cmd.arg(format!("file:///{}", page.display().to_string().replace(char::from(92), "/")));
         for (k, v) in &p.env { cmd.env(k, v); }
         cmd.stdout(Stdio::null()).stderr(Stdio::null());
         let mut child = cmd.spawn().expect("start camoufox");

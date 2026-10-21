@@ -161,10 +161,10 @@ fn android_presets() -> Vec<Preset> {
                 }),
                 navigator: Nav {
                     user_agent: format!("Mozilla/5.0 (Android {ver}; Mobile; rv:{FIREFOX_MAJOR}.0) Gecko/{FIREFOX_MAJOR}.0 Firefox/{FIREFOX_MAJOR}.0"),
-                    platform: "Linux armv8l".into(),
+                    platform: "Linux armv81".into(),
                     hardware_concurrency: d["cores"].as_u64().map(|c| c as u32),
                     max_touch_points: Some(5),
-                    oscpu: Some("Linux armv8l".into()),
+                    oscpu: Some("Linux armv81".into()),
                 },
                 screen: ScreenSpec { width: w, height: h, color_depth: Some(24), avail_width: Some(w), avail_height: Some(h) },
                 webgl: None,
@@ -333,7 +333,7 @@ fn oscpu_for(platform: &str, os: TargetOs) -> Option<&'static str> {
         TargetOs::Windows => Some("Windows NT 10.0; Win64; x64"),
         TargetOs::Linux => Some("Linux x86_64"),
         TargetOs::Macos => None,
-        TargetOs::Android => Some("Linux armv8l"),
+        TargetOs::Android => Some("Linux armv81"),
     }
 }
 
@@ -553,7 +553,8 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
         // The GPU a phone of this model reports. Parameters stay the engine's own: there is no
         // recording of a real phone's WebGL to take them from.
         c.insert("webGl:vendor".into(), json!(ph.gpu_vendor));
-        c.insert("webGl:renderer".into(), json!(ph.gpu_renderer));
+        // Firefox for Android reports the renderer with the suffix ", or similar" (seen in real captures).
+        c.insert("webGl:renderer".into(), json!(format!("{}, or similar", ph.gpu_renderer)));
     }
 
     let fonts = if os == TargetOs::Android { android_fonts() } else { font_base(os, ctx.profile_id) };
@@ -601,6 +602,11 @@ pub fn build_config(preset: &Preset, os: TargetOs, ctx: &Context) -> Map<String,
     c
 }
 
+/// Firefox will not make a window narrower than about 500 px, so a 412 px phone window would report an
+/// outer width wider than its own screen. This stylesheet lifts that minimum.
+pub const PHONE_CHROME_CSS: &str = "#main-window,:root{min-width:0!important;min-height:0!important} #navigator-toolbox,#nav-bar,#TabsToolbar{min-width:0!important}
+";
+
 /// Prefs Camoufox applies at start-up (through `CAMOU_PREFS_n`).
 pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
     let mut p = Map::new();
@@ -616,6 +622,8 @@ pub fn build_prefs(ctx: &Context) -> Map<String, Value> {
     p.insert("privacy.donottrackheader.enabled".into(), json!(false));
     p.insert("privacy.globalprivacycontrol.enabled".into(), json!(false));
     if ctx.mobile {
+        // Lets the profile's `chrome/userChrome.css` (see `PHONE_CHROME_CSS`) take effect.
+        p.insert("toolkit.legacyUserProfileCustomizations.stylesheets".into(), json!(true));
         p.insert("dom.w3c_touch_events.enabled".into(), json!(1));
         p.insert("dom.w3c_touch_events.legacy_apis.enabled".into(), json!(true));
         p.insert("dom.meta-viewport.enabled".into(), json!(true));
@@ -917,8 +925,8 @@ mod tests {
             let ua = c["navigator.userAgent"].as_str().unwrap();
             assert!(ua.starts_with("Mozilla/5.0 (Android ") && ua.contains("; Mobile; rv:158.0)") && ua.ends_with("Firefox/158.0"), "{ua}");
             assert!(!ua.contains("Windows") && !ua.contains("X11"), "{ua}");
-            assert_eq!(c["navigator.platform"], "Linux armv8l");
-            assert_eq!(c["navigator.oscpu"], "Linux armv8l");
+            assert_eq!(c["navigator.platform"], "Linux armv81");
+            assert_eq!(c["navigator.oscpu"], "Linux armv81");
             assert!(c["navigator.appVersion"].as_str().unwrap().starts_with("5.0 (Android "));
             assert_eq!(c["navigator.maxTouchPoints"], 5);
             assert_eq!(c["window.devicePixelRatio"], ph.dpr);
@@ -927,7 +935,7 @@ mod tests {
                 assert_eq!(c[a], c[b], "{} {a} vs {b}", e.id);
             }
             assert!(c["screen.width"].as_u64().unwrap() < c["screen.height"].as_u64().unwrap(), "portrait");
-            assert_eq!(c["webGl:renderer"], ph.gpu_renderer.as_str());
+            assert_eq!(c["webGl:renderer"], format!("{}, or similar", ph.gpu_renderer).as_str());
             // Only phone fonts: nothing a desktop would add.
             let fonts: Vec<_> = c["fonts"].as_array().unwrap().iter().map(|f| f.as_str().unwrap()).collect();
             assert!(fonts.contains(&"Roboto") && !fonts.contains(&"Arial") && !fonts.contains(&"Segoe UI"), "{fonts:?}");
