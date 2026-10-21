@@ -68,8 +68,9 @@ HeroV is an early release. This table says what is ready and what is not.
 | Profiles, proxies, fingerprints, extensions, bookmarks, trash, settings | New interface, in this release |
 | Create profile, device first: **Windows** | Ready |
 | Create profile, device first: **Android** | **Experimental.** Public fingerprint checkers such as CreepJS flag the current Android entries because their graphics parameters are not captures of real devices. Real-device captures are on the roadmap. Android and iOS profiles will be part of the Pro tier. |
-| macOS and Linux profiles | Planned |
-| iOS profiles, Camoufox engine | Planned |
+| macOS and Linux profiles (Chrome engine) | Planned |
+| **Camoufox engine** (Firefox, second engine, Windows only) | **Experimental, on the main branch, not in a release yet.** Install it from Settings → Browser (1.3 GB download), then pick it when creating a profile. Proxies work through a local relay; extensions, bookmarks, cookie files and automation are Chrome-only for now. See [the spec](docs/specs/second-engine-camoufox.md). |
+| iOS profiles | Planned |
 | Automation, live view, traffic panel, window synchroniser | Work, but still the previous interface and partly English |
 | Cloud sync and teams | Specified, not built. See [the spec](docs/specs/cloud-sync.md) |
 | Installer signing | Not signed yet: Windows SmartScreen will warn |
@@ -122,5 +123,6 @@ Notes for contributors: the interface follows the HeroV design system in [docs/d
 
 - **Launcher source** (the Tauri shell, React interface and Rust code in this repository) is under the **MIT licence**, see [LICENSE](LICENSE).
 - HeroV Browser is built on **ShardX Launcher** by the ProxyShard team (MIT). Their copyright and licence notice are kept, and their work is the foundation of the profile, proxy and API features here.
+- The **Camoufox** engine is [Camoufox](https://github.com/daijro/camoufox) by daijro and contributors (Mozilla Public License 2.0). HeroV downloads it unmodified from its GitHub releases and checks it against a pinned SHA-256. The device library it uses comes from Camoufox's Python package (MIT); see `src-tauri/src/camoufox/data/NOTICE.md`.
 - The **browser engine** is a separate, closed-source patched Chromium that the app downloads on first run. It is distributed by its authors under its own terms, which restrict reverse engineering, redistribution of modified copies, and its use inside a commercial anti-detect product or service. The summary is in the licensing section of [docs/engine-and-api-reference.md](docs/engine-and-api-reference.md#licensing); read it before building anything commercial on top.
 - The licence of the future Community edition will be published with that release.

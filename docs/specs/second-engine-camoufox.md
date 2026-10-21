@@ -1,6 +1,19 @@
 # Second engine: Camoufox next to Chrome
 
-Status: **draft 1, awaiting owner approval of the backend module** · Date 2026-10-20 · Owner request: "two engines running in parallel in this browser".
+Status: **CF1 to CF6 built and pushed; CF7 partly done** · Drafted 2026-10-20, built 2026-10-20 to 2026-10-21 · Owner request: "two engines running in parallel in this browser".
+
+## 0. What was built and how it was checked
+| WP | State | Checked against |
+|---|---|---|
+| CF1 engine field and dispatch | Done | Rust unit tests; existing Chrome tests unchanged |
+| CF2 installer | Done | Real 1.3 GB archive passed the pinned SHA-256 and unpacked (2.6 GB, `camoufox.exe` present) |
+| CF3 library and config | Done | Every key written is in the property list of the real build; 113 devices |
+| CF4 launch and stop | Done | Real engine: identity read back by a page; real window opens; polite close ends all processes. Needed `-wait-for-browser` (Windows launcher process) and `WM_CLOSE` to the whole process tree |
+| CF5 proxy relay and place | Done | Real engine through a login-protected mock proxy: name resolved only by the proxy, time zone and language from the proxy's country; with the relay down the page does not load and nothing goes out directly |
+| CF6 interface | Done | UI tests; screenshots of the built interface |
+| CF7 verification | **Partly** | CreepJS opened in a real Camoufox window: top of the report shows 0% headless, 0% stealth, `chromium: false`, Windows platform hints, time zone and language consistent. Not done: BrowserScan, the CreepJS trust score and lies (outside the captured area), WebRTC leak page behind a real proxy, a Chrome and a Camoufox profile running together for an hour |
+
+Known gaps: HTTPS-type proxies are refused; WebGL is the host's own (no spoofed parameters); the unpack takes several minutes on this machine; only Windows x64.
 
 ## 1. Goal
 Every profile picks an engine when it is created: **Chrome** (the ShardX Chromium engine, today's behaviour) or **Camoufox** (patched Firefox). Both kinds of profile can run at the same time, each with its own data folder, proxy and fingerprint. The engine picker already exists in the interface (Create profile and Settings → Profile defaults) with Camoufox disabled; this spec turns it on.

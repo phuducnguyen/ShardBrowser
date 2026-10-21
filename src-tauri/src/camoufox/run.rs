@@ -340,6 +340,35 @@ mod tests {
         assert!(chosen_preset(&s, "x").is_err());
     }
 
+    /// Opens the URL in HEROV_URL in a real Camoufox window (direct connection, device cf-win-0) and
+    /// keeps it open for HEROV_SECONDS (default 40) so it can be photographed, then closes it.
+    ///   HEROV_URL=https://... HEROV_TEST_MANIFEST=1 cargo test --lib real_window_on_url -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn real_window_on_url() {
+        let url = std::env::var("HEROV_URL").expect("set HEROV_URL");
+        let secs: u64 = std::env::var("HEROV_SECONDS").ok().and_then(|s| s.parse().ok()).unwrap_or(40);
+        let preset = std::env::var("HEROV_PRESET").unwrap_or_else(|_| "cf-win-0".into());
+        let bin = install::status().binary_path.expect("install Camoufox first");
+        let fx = std::env::temp_dir().join(format!("herov-cf-url-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&fx).unwrap();
+        let s = stored(json!({"camoufox": {"preset": preset}}));
+        let p = plan("real-url", &s, &fx, false, None, None).unwrap();
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.args(&p.args).arg(&url);
+        for (k, v) in &p.env { cmd.env(k, v); }
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        let mut child = cmd.spawn().expect("start camoufox");
+        println!("opened {url}; open for {secs} s (pid {})", child.id());
+        std::thread::sleep(std::time::Duration::from_secs(secs));
+        crate::camoufox::winclose::close_tree(child.id());
+        for _ in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if child.try_wait().unwrap().is_some() { return; }
+        }
+        let _ = child.kill();
+    }
+
     /// Camoufox behind the relay and a proxy that wants a login, reaching a site whose name exists
     /// nowhere but in the proxy: proves login, remote DNS, and the place taken from the proxy.
     ///   HEROV_TEST_MANIFEST=1 cargo test --lib real_proxy -- --ignored --nocapture
