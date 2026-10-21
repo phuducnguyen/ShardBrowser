@@ -518,5 +518,19 @@ td .ellip { display: block; max-width: 36ch; overflow: hidden; text-overflow: el
 .savebar.split { justify-content: space-between; }
 .select.narrow-select { max-width: 280px; }
 
+/* ---------- regions: every area has a visible edge, on both themes ---------- */
+.topbar { padding-bottom: 14px; border-bottom: 1px solid var(--divider); }
+.view { padding-top: 16px; }
+.panel, .card { border: 1px solid var(--divider); }
+:root[data-theme="dark"] .panel, :root[data-theme="dark"] .card { box-shadow: var(--e1), inset 0 1px 0 rgb(255 255 255 / .04); }
+.panel-title:not(:last-child) { border-bottom: 1px solid var(--divider); margin-bottom: 6px; }
+.toolbar:not(:last-child) { border-bottom: 1px solid var(--divider); }
+tbody td { border-bottom-color: var(--divider); }
+tbody tr:last-child td { border-bottom: 0; }
+.sheet-head { border-bottom: 1px solid var(--divider); }
+.dialog h2 { padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--divider); }
+.dialog .actions { padding-top: 16px; border-top: 1px solid var(--divider); }
+.group:has(> .sect) + .group:has(> .sect) { border-top: 1px solid var(--divider); padding-top: var(--sp-5); }
+
 @media (max-width: 1100px) { .view { grid-template-columns: 180px 1fr; padding: 4px var(--sp-4) var(--sp-4); } .formbar .select { width: 180px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

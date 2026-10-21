@@ -51,6 +51,9 @@
   --error: #ba1a1a; --error-container: #ffdad6;
   --warning: #a14b00; --warning-container: #ffe9d6;
 
+  /* region edges: a hairline that separates panels, cards, headers and footers on both themes */
+  --divider: color-mix(in srgb, var(--outline-variant) 60%, transparent);
+
   /* state layers */
   --hover: color-mix(in srgb, var(--primary-text) 8%, transparent);
   --press: color-mix(in srgb, var(--primary-text) 12%, transparent);
@@ -618,6 +621,20 @@
 .hv .def-actions { display: flex; align-items: center; gap: var(--sp-3); }
 .hv .savebar.split { justify-content: space-between; }
 .hv .select.narrow-select { max-width: 280px; }
+
+/* ---------- regions: every area has a visible edge, on both themes ---------- */
+.hv .topbar { padding-bottom: 14px; border-bottom: 1px solid var(--divider); }
+.hv .view { padding-top: 16px; }
+.hv .panel, .hv .card { border: 1px solid var(--divider); }
+:root[data-theme="dark"] .hv .panel, :root[data-theme="dark"] .hv .card { box-shadow: var(--e1), inset 0 1px 0 rgb(255 255 255 / .04); }
+.hv .panel-title:not(:last-child) { border-bottom: 1px solid var(--divider); margin-bottom: 6px; }
+.hv .toolbar:not(:last-child) { border-bottom: 1px solid var(--divider); }
+.hv tbody td { border-bottom-color: var(--divider); }
+.hv tbody tr:last-child td { border-bottom: 0; }
+.hv .sheet-head { border-bottom: 1px solid var(--divider); }
+.hv .dialog h2 { padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--divider); }
+.hv .dialog .actions { padding-top: 16px; border-top: 1px solid var(--divider); }
+.hv .group:has(> .sect) + .group:has(> .sect) { border-top: 1px solid var(--divider); padding-top: var(--sp-5); }
 
 @media (max-width: 1100px) { .hv .view { grid-template-columns: 180px 1fr; padding: 4px var(--sp-4) var(--sp-4); } .hv .formbar .select { width: 180px; } }
 @media (prefers-reduced-motion: reduce) { .hv *::before, .hv *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

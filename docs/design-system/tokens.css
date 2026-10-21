@@ -50,6 +50,9 @@
   --error: #ba1a1a; --error-container: #ffdad6;
   --warning: #a14b00; --warning-container: #ffe9d6;
 
+  /* region edges: a hairline that separates panels, cards, headers and footers on both themes */
+  --divider: color-mix(in srgb, var(--outline-variant) 60%, transparent);
+
   /* state layers */
   --hover: color-mix(in srgb, var(--primary-text) 8%, transparent);
   --press: color-mix(in srgb, var(--primary-text) 12%, transparent);
