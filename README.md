@@ -67,9 +67,10 @@ HeroV is an early release. This table says what is ready and what is not.
 |---|---|
 | Profiles, proxies, fingerprints, extensions, bookmarks, trash, settings | New interface, in this release |
 | Create profile, device first: **Windows** | Ready |
-| Create profile, device first: **Android** | **Experimental.** Public fingerprint checkers such as CreepJS flag the current Android entries because their graphics parameters are not captures of real devices. Real-device captures are on the roadmap. Android and iOS profiles will be part of the Pro tier. |
+| Create profile, device first: **Android** | **Experimental.** Public fingerprint checkers such as CreepJS flag the current Android entries because their graphics parameters are not captures of real devices. For phones, the Camoufox engine below is the better choice today. |
 | macOS and Linux profiles (Chrome engine) | Planned |
-| **Camoufox engine** (Firefox, second engine, Windows only) | **Experimental, on the main branch, not in a release yet.** Install it from Settings → Browser (1.3 GB download), then pick it when creating a profile. Proxies work through a local relay; extensions, bookmarks, cookie files and automation are Chrome-only for now. See [the spec](docs/specs/second-engine-camoufox.md). |
+| **Camoufox engine** (Firefox, second engine, Windows only) | **Experimental.** Install it from Settings → Browser (1.3 GB download), then pick it when creating a profile. Windows, macOS and Linux devices recorded from real Firefox; WebGL is masked with recorded identities (pixelscan: consistent; scanbrowser.net: all four checks normal on a Windows profile). Proxies work through a local relay; extensions, bookmarks, cookie files and automation are Chrome-only for now. See [the spec](docs/specs/second-engine-camoufox.md). |
+| **Android phones on Camoufox** | **Experimental.** 114 phones (12 named models + 102 built from real-browser statistics), filtered by class and GPU family, Android version limited to what the phone could run, touch, phone-sized window, overlay scrollbars. scanbrowser.net: browser, hardware and network normal, **software flagged**; CreepJS: no headless or stealth signs, one lie (pixel ratio) and the WebGL parameters marked suspicious. Details: [research notes](docs/references/antidetect-generator-research.md), [what is left](docs/specs/phone-identity-next.md). |
 | iOS profiles | Planned |
 | Automation, live view, traffic panel, window synchroniser | Work, but still the previous interface and partly English |
 | Cloud sync and teams | Specified, not built. See [the spec](docs/specs/cloud-sync.md) |
@@ -103,15 +104,15 @@ The order was chosen so that team and cloud features, the biggest differentiator
 |---|---|
 | 0.1.0 | New interface, device-first profiles, profile defaults, Vietnamese (this release) |
 | 0.2.0 | Cloud alpha: self-hosted server (Rust, axum), encrypted sync of profiles and their browser data |
-| 0.3.0 | Community edition: one-command deployment on your own server |
-| 0.4.0 | Teams: roles, sharing, audit log, subscription licensing |
+| 0.3.0 | One-command deployment of the server on your own machine |
+| 0.4.0 | Teams: roles, sharing, audit log |
 | 0.5.0 | Profile workflow: create many at once, task centre, bulk cookie import, activity history, undo |
 | 0.6.0 | Fingerprint quality: real-device captures, isolated-environment checks, Android out of experimental |
 | 0.7.0 | Automation and interface polish |
 
 Plans: [editions and Cloud first](plans/261019-herov-gap-roadmap/editions-and-cloud-first.md) · [feature roadmap](plans/261019-herov-gap-roadmap/feature-roadmap.md) · [Cloud spec](docs/specs/cloud-sync.md).
 
-Planned editions: **Community** (self-hosted, free) and **Commercial** (subscription, with hosted cloud, team roles, automation and higher limits). Pricing is not set.
+HeroV stays a free, open-source project; there is no paid edition planned.
 
 ## For developers
 
@@ -123,6 +124,5 @@ Notes for contributors: the interface follows the HeroV design system in [docs/d
 
 - **Launcher source** (the Tauri shell, React interface and Rust code in this repository) is under the **MIT licence**, see [LICENSE](LICENSE).
 - HeroV Browser is built on **ShardX Launcher** by the ProxyShard team (MIT). Their copyright and licence notice are kept, and their work is the foundation of the profile, proxy and API features here.
-- The **Camoufox** engine is [Camoufox](https://github.com/daijro/camoufox) by daijro and contributors (Mozilla Public License 2.0). HeroV downloads it unmodified from its GitHub releases and checks it against a pinned SHA-256. The device library it uses comes from Camoufox's Python package (MIT); see `src-tauri/src/camoufox/data/NOTICE.md`.
+- The **Camoufox** engine is [Camoufox](https://github.com/daijro/camoufox) by daijro and contributors (Mozilla Public License 2.0). HeroV downloads it unmodified from its GitHub releases and checks it against a pinned SHA-256. The device library it uses comes from Camoufox's Python package (MIT); WebGL identities from [fpgen](https://github.com/scrapfly/fingerprint-generator) (Apache-2.0); generated phones from [Apify fingerprint-suite](https://github.com/apify/fingerprint-suite) data (Apache-2.0); named phones from ManyFaces. See `src-tauri/src/camoufox/data/NOTICE.md`.
 - The **browser engine** is a separate, closed-source patched Chromium that the app downloads on first run. It is distributed by its authors under its own terms, which restrict reverse engineering, redistribution of modified copies, and its use inside a commercial anti-detect product or service. The summary is in the licensing section of [docs/engine-and-api-reference.md](docs/engine-and-api-reference.md#licensing); read it before building anything commercial on top.
-- The licence of the future Community edition will be published with that release.
