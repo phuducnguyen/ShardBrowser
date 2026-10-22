@@ -7,14 +7,15 @@
 //! "not supported yet" instead of guessing.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Window};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
 /// The release HeroV was tested with. Camoufox publishes betas only, so the launcher pins one and
 /// moves to the next deliberately.
@@ -130,11 +131,56 @@ pub fn verify_digest(path: &Path, expected: &str) -> Result<()> {
     Ok(())
 }
 
+/// Unpack on several threads (the archive holds thousands of files; one thread took minutes).
+/// Every entry must stay inside `dest`; one that does not stops the unpack before anything is written.
 fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
-    let f = fs::File::open(zip_path)?;
-    let mut archive = zip::ZipArchive::new(f)?;
-    archive.extract(dest)?;
-    Ok(())
+    let mut archive = zip::ZipArchive::new(fs::File::open(zip_path)?)?;
+    let mut files: Vec<(usize, u64)> = Vec::new();
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for i in 0..archive.len() {
+        let e = archive.by_index(i)?;
+        let rel = e.enclosed_name().with_context(|| format!("archive entry `{}` points outside the engine folder", e.name()))?;
+        if e.is_dir() {
+            dirs.push(dest.join(rel));
+        } else {
+            files.push((i, e.size()));
+        }
+    }
+    for d in dirs {
+        fs::create_dir_all(d)?;
+    }
+    // Largest first, dealt round-robin, so the threads finish together.
+    files.sort_by(|a, b| b.1.cmp(&a.1));
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 16);
+    let mut shares: Vec<Vec<usize>> = vec![Vec::new(); threads];
+    for (k, (i, _)) in files.iter().enumerate() {
+        shares[k % threads].push(*i);
+    }
+    std::thread::scope(|scope| -> Result<()> {
+        let handles: Vec<_> = shares
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .map(|share| {
+                scope.spawn(move || -> Result<()> {
+                    let mut archive = zip::ZipArchive::new(fs::File::open(zip_path)?)?;
+                    for i in share {
+                        let mut e = archive.by_index(i)?;
+                        let out = dest.join(e.enclosed_name().context("entry outside the engine folder")?);
+                        if let Some(parent) = out.parent() {
+                            fs::create_dir_all(parent)?;
+                        }
+                        let mut w = std::io::BufWriter::new(fs::File::create(&out)?);
+                        std::io::copy(&mut e, &mut w)?;
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().map_err(|_| anyhow::anyhow!("an unpack thread panicked"))??;
+        }
+        Ok(())
+    })
 }
 
 /// Everything after the download: size and digest check, unpack into a staging folder, make sure
@@ -239,40 +285,192 @@ async fn install_inner(window: &Window, force: bool, rel: Release) -> Result<()>
 }
 
 async fn download(window: &Window, rel: &Release, part: &Path) -> Result<()> {
-    let already = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
-    // A partial file as large as the archive (or larger) cannot be resumed; start over.
-    let already = if already >= rel.size { 0 } else { already };
-    let client = reqwest::Client::builder().user_agent("HeroV-Browser").build()?;
-    let mut req = client.get(download_url(rel));
-    if already > 0 {
-        req = req.header("Range", format!("bytes={already}-"));
-    }
-    let mut resp = req.send().await?.error_for_status()?;
-    let resuming = already > 0 && resp.status().as_u16() == 206;
-
-    let mut out = tokio::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .append(resuming)
-        .truncate(!resuming)
-        .open(part)
-        .await?;
-    let mut received: u64 = if resuming { already } else { 0 };
-    let mut last_pct = u64::MAX;
-    while let Some(chunk) = resp.chunk().await? {
-        out.write_all(&chunk).await?;
-        received += chunk.len() as u64;
-        let pct = received.saturating_mul(100) / rel.size.max(1);
-        if pct != last_pct {
-            last_pct = pct;
-            let _ = window.emit(
+    let w = window.clone();
+    let total = rel.size;
+    let last = Arc::new(AtomicU64::new(u64::MAX));
+    let on_progress: Progress = Arc::new(move |received: u64| {
+        let pct = received.saturating_mul(100) / total.max(1);
+        if last.swap(pct, Ordering::Relaxed) != pct {
+            let _ = w.emit(
                 "camoufox:progress",
-                serde_json::json!({ "phase": "download", "percent": pct, "received": received, "total": rel.size }),
+                serde_json::json!({ "phase": "download", "percent": pct, "received": received, "total": total }),
             );
         }
+    });
+    parallel_download(&download_url(rel), rel.size, part, CONNECTIONS, on_progress).await
+}
+
+/// Connections used for one download. GitHub's CDN gives a single connection far less than the
+/// line can carry; eight byte ranges measured about nine times faster than one on this setup.
+pub const CONNECTIONS: usize = 8;
+
+pub type Progress = Arc<dyn Fn(u64) + Send + Sync>;
+
+/// Which bytes each connection fetches and how many of them are already on disk. Saved next to
+/// the partial file so an interrupted download continues where every connection stopped.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct SegmentState {
+    size: u64,
+    /// Inclusive byte ranges.
+    ranges: Vec<(u64, u64)>,
+    done: Vec<u64>,
+}
+
+/// `size` bytes cut into `n` nearly equal inclusive ranges (fewer when the file is tiny).
+fn plan_segments(size: u64, n: usize) -> Vec<(u64, u64)> {
+    if size == 0 {
+        return Vec::new();
     }
-    out.flush().await?;
+    let n = (n.max(1) as u64).min(size);
+    let step = size / n;
+    (0..n)
+        .map(|i| {
+            let start = i * step;
+            let end = if i == n - 1 { size - 1 } else { start + step - 1 };
+            (start, end)
+        })
+        .collect()
+}
+
+fn state_path(part: &Path) -> PathBuf {
+    let mut p = part.as_os_str().to_owned();
+    p.push(".json");
+    PathBuf::from(p)
+}
+
+/// The resume state for `part`: the saved one when it matches, the old single-connection layout
+/// (a prefix on disk) mapped onto the ranges, or a fresh start.
+fn load_state(part: &Path, size: u64, n: usize) -> SegmentState {
+    let ranges = plan_segments(size, n);
+    let fresh = SegmentState { size, done: vec![0; ranges.len()], ranges: ranges.clone() };
+    let on_disk = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
+    if let Ok(text) = fs::read_to_string(state_path(part)) {
+        if let Ok(st) = serde_json::from_str::<SegmentState>(&text) {
+            let sane = st.size == size
+                && st.ranges.len() == st.done.len()
+                && st.ranges.iter().zip(&st.done).all(|((a, b), d)| *d <= b - a + 1)
+                && on_disk == size;
+            if sane {
+                return st;
+            }
+        }
+        return fresh;
+    }
+    // A partial file from the single-connection installer: its first bytes are good.
+    if on_disk > 0 && on_disk < size {
+        let done = ranges.iter().map(|(a, b)| on_disk.saturating_sub(*a).min(b - a + 1)).collect();
+        return SegmentState { size, ranges, done };
+    }
+    fresh
+}
+
+fn save_state(part: &Path, st: &SegmentState) {
+    if let Ok(text) = serde_json::to_string(st) {
+        let _ = fs::write(state_path(part), text);
+    }
+}
+
+/// Download `url` (`size` bytes) into `part` over `connections` byte ranges at once. Each range
+/// retries on its own and resumes from its last byte; the state survives a restart of the app.
+pub async fn parallel_download(url: &str, size: u64, part: &Path, connections: usize, on_progress: Progress) -> Result<()> {
+    let state = load_state(part, size, connections);
+    {
+        let f = fs::OpenOptions::new().create(true).write(true).truncate(false).open(part)?;
+        if f.metadata()?.len() != size {
+            f.set_len(size)?;
+        }
+    }
+    save_state(part, &state);
+    let received = Arc::new(AtomicU64::new(state.done.iter().sum()));
+    on_progress(received.load(Ordering::Relaxed));
+    let shared = Arc::new(Mutex::new(state.clone()));
+    let client = reqwest::Client::builder().user_agent("HeroV-Browser").build()?;
+
+    let mut tasks = Vec::new();
+    for (i, (start, end)) in state.ranges.iter().copied().enumerate() {
+        let (client, url, part, shared, received, on_progress) =
+            (client.clone(), url.to_string(), part.to_path_buf(), shared.clone(), received.clone(), on_progress.clone());
+        tasks.push(tokio::spawn(async move {
+            fetch_range(&client, &url, &part, i, start, end, &shared, &received, &on_progress).await
+        }));
+    }
+    let mut first_err = None;
+    for t in tasks {
+        if let Err(e) = t.await.map_err(anyhow::Error::from).and_then(|r| r) {
+            first_err.get_or_insert(e);
+        }
+    }
+    let final_state = shared.lock().unwrap().clone();
+    save_state(part, &final_state);
+    if let Some(e) = first_err {
+        return Err(e.context("download interrupted; it continues from where it stopped next time"));
+    }
+    let _ = fs::remove_file(state_path(part));
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn fetch_range(
+    client: &reqwest::Client,
+    url: &str,
+    part: &Path,
+    index: usize,
+    start: u64,
+    end: u64,
+    shared: &Mutex<SegmentState>,
+    received: &AtomicU64,
+    on_progress: &Progress,
+) -> Result<()> {
+    let mut attempt = 0;
+    loop {
+        let done = shared.lock().unwrap().done[index];
+        let from = start + done;
+        if from > end {
+            return Ok(());
+        }
+        let result: Result<()> = async {
+            let mut resp = client.get(url).header("Range", format!("bytes={from}-{end}")).send().await?.error_for_status()?;
+            anyhow::ensure!(resp.status().as_u16() == 206, "the server does not send byte ranges (status {})", resp.status());
+            let mut out = tokio::fs::OpenOptions::new().write(true).open(part).await?;
+            out.seek(std::io::SeekFrom::Start(from)).await?;
+            let mut unsaved = 0u64;
+            while let Some(chunk) = resp.chunk().await? {
+                let room = (end + 1).saturating_sub(start + shared.lock().unwrap().done[index]);
+                let take = (chunk.len() as u64).min(room) as usize;
+                out.write_all(&chunk[..take]).await?;
+                shared.lock().unwrap().done[index] += take as u64;
+                unsaved += take as u64;
+                on_progress(received.fetch_add(take as u64, Ordering::Relaxed) + take as u64);
+                if unsaved >= 8 << 20 {
+                    out.flush().await?;
+                    let snapshot = shared.lock().unwrap().clone();
+                    save_state(part, &snapshot);
+                    unsaved = 0;
+                }
+                if take < chunk.len() {
+                    break;
+                }
+            }
+            out.flush().await?;
+            Ok(())
+        }
+        .await;
+        match result {
+            Ok(()) => {
+                if start + shared.lock().unwrap().done[index] > end {
+                    return Ok(());
+                }
+                // The connection ended early; ask again for the rest.
+            }
+            Err(e) => {
+                attempt += 1;
+                if attempt >= 6 {
+                    return Err(e.context(format!("byte range {index} failed six times")));
+                }
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500 * (attempt as u64 + 1))).await;
+    }
 }
 
 #[cfg(test)]
@@ -403,6 +601,44 @@ mod tests {
         let st = status();
         println!("installed: {} at {:?}, {} bytes", st.installed, st.binary_path, st.size_bytes.unwrap_or(0));
         assert!(st.installed);
+    }
+
+    #[test]
+    fn segments_cover_every_byte_once() {
+        for (size, n) in [(1_315_506_159u64, 8usize), (10, 8), (3, 8), (1, 8), (1000, 1)] {
+            let r = plan_segments(size, n);
+            assert_eq!(r.first().unwrap().0, 0);
+            assert_eq!(r.last().unwrap().1, size - 1);
+            for w in r.windows(2) {
+                assert_eq!(w[0].1 + 1, w[1].0, "ranges must touch without overlap");
+            }
+            assert!(r.len() <= n && r.len() as u64 <= size);
+        }
+        assert!(plan_segments(0, 8).is_empty());
+    }
+
+    #[test]
+    fn a_partial_file_from_the_old_installer_counts_as_done_bytes() {
+        let d = scratch("legacy");
+        let part = d.join("engine.zip.part");
+        fs::write(&part, vec![0u8; 250]).unwrap();
+        let st = load_state(&part, 1000, 4);
+        assert_eq!(st.ranges, vec![(0, 249), (250, 499), (500, 749), (750, 999)]);
+        assert_eq!(st.done, vec![250, 0, 0, 0]);
+    }
+
+    #[test]
+    fn a_saved_state_is_reused_only_when_it_fits_the_file() {
+        let d = scratch("state");
+        let part = d.join("engine.zip.part");
+        fs::write(&part, vec![0u8; 1000]).unwrap();
+        let saved = SegmentState { size: 1000, ranges: plan_segments(1000, 4), done: vec![250, 10, 0, 249] };
+        save_state(&part, &saved);
+        assert_eq!(load_state(&part, 1000, 4), saved);
+        // A state for another size, or one claiming more bytes than a range holds, starts over.
+        assert_eq!(load_state(&part, 2000, 4).done, vec![0; 4]);
+        save_state(&part, &SegmentState { size: 1000, ranges: plan_segments(1000, 4), done: vec![251, 0, 0, 0] });
+        assert_eq!(load_state(&part, 1000, 4).done, vec![0; 4]);
     }
 
     #[test]
