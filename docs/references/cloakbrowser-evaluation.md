@@ -31,3 +31,17 @@ What it does **not** offer: Android or iOS personas (desktop platforms only), ch
 
 ## Recommendation
 Do not build it in as a shipped engine. If the owner wants it, ask CloakHQ (info@cloakbrowser.dev) for written permission or an OEM quote for a free open-source launcher, and decide after the answer; it is the same situation as Wayfern. Meanwhile HeroV already gives unlimited profiles and unlimited parallel sessions with its two engines (no limit in the launcher code; the practical limit is the computer's memory).
+
+## Alternative tested: fingerprint-chromium (2026-10-22)
+`adryfish/fingerprint-chromium`, BSD-3-Clause, built on ungoogled-chromium; release `150.0.7871.186` Windows ZIP, SHA-256 checked against the digest GitHub publishes. Run on this machine with throw-away profiles, direct connection, `--fingerprint=<seed> --fingerprint-platform=windows --fingerprint-brand=Chrome --timezone=Asia/Bangkok --lang=vi-VN`.
+
+| Check | Result |
+|---|---|
+| Seed changes the identity | Yes: cores, memory and GPU model change per seed (host 64 cores / GT 730 became 24 cores / RTX 3060 with seed 12345, 28 cores / RTX 3050 Laptop with 777); GPU maker stays the host's; screen is not spoofed; `navigator.languages` gains extra languages (`fr-FR`, `en-US`) |
+| **Canvas spoofing** | **Crashes the page** (renderer crash, `Crashpad_NotConnectedToHandler`) on CreepJS and on scanbrowser.net, every run; `--disable-spoofing=canvas` avoids it |
+| CreepJS (canvas spoofing off) | 0 lies, 0 trash, 0% headless, 0% stealth, 19% like-headless; platform estimate Windows |
+| scanbrowser.net, no seed | Browser **anomaly** (shows "Chromium" and "Google License: No", a tell of ungoogled builds), Software normal, Hardware normal, Network **anomaly** |
+| scanbrowser.net, seed 12345 | Browser **anomaly**, Software **anomaly**, Hardware normal, Network **anomaly** |
+| Proxy | `--proxy-server` without login (HeroV's local relay would supply the login) |
+
+Verdict: not ready to replace the ShardX engine. The canvas crash is a blocker (a crashing tab is itself a tell), and three of four scanbrowser categories fail. Watch later releases; re-test when the canvas crash is fixed.
