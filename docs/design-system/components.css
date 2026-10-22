@@ -59,12 +59,28 @@ button { cursor: pointer; }
 .logo-row { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .logo-row .logo { margin-bottom: 0; }
 .logo-text { display: none; font-weight: 800; font-size: 20px; letter-spacing: -.015em; color: var(--on-surface); }
+/* the running build's version, under the logo (collapsed) or under the name (wide); opens About */
+.logo-row { flex-direction: column; gap: 4px; }
+.logo-name { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.logo-ver {
+  border: 0; border-radius: 999px; padding: 1px 6px; cursor: pointer; white-space: nowrap;
+  font: 600 10px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: 0;
+  color: var(--on-surface-2); background: color-mix(in srgb, var(--on-surface-2) 12%, transparent);
+}
+.logo-ver:hover { color: var(--on-surface); }
+.logo-ver.ch-beta, .logo-ver.ch-alpha, .logo-ver.ch-rc { color: var(--warning); background: var(--warning-container); }
+/* Settings → About */
+.about-head { display: flex; align-items: center; gap: 16px; }
+.about-name { margin: 0; font-weight: 800; font-size: 20px; letter-spacing: -.015em; color: var(--on-surface); }
+.about-ver { margin: 4px 0 0; display: flex; align-items: center; gap: 8px; font: 600 14px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--on-surface-2); }
+.chip-plain.is-warn { background: var(--warning-container); color: var(--warning); }
 .rail:not(.is-wide) .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .rail:not(.is-wide) .rail-btn { height: 44px; padding: 6px 0; justify-content: center; }
 
 /* wide rail: icon and label on one row, the active row tinted end to end */
 .rail.is-wide { align-items: stretch; padding-inline: 12px; }
-.rail.is-wide .logo-row { justify-content: flex-start; gap: 10px; padding: 0 4px; }
+.rail.is-wide .logo-row { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 4px; }
+.rail.is-wide .logo-name { align-items: flex-start; gap: 2px; }
 .rail.is-wide .logo-text { display: block; }
 .rail.is-wide .new-split { width: 100%; }
 .rail.is-wide .new-split button { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 14px; }

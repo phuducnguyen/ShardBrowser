@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useNav } from "../../shared/model/navigation";
+import patchlog from "../../pages/patchlog/patchlog.json";
 
 const SEEN_KEY = "shardx-patchlog-seen-version";
 
@@ -23,7 +24,9 @@ export function WhatsNewGate() {
       // A fresh install has nothing to catch up on — record the version and
       // leave the operator on the profile list.
       localStorage.setItem(SEEN_KEY, version);
-      if (seen && seen !== version) {
+      // Only when the patch log has an entry for this version: it is the engine's log, and a
+      // HeroV release with nothing in it would open on unrelated notes.
+      if (seen && seen !== version && patchlog.releases.some((r) => r.version === version)) {
         setSection("patchlog");
       }
     })();

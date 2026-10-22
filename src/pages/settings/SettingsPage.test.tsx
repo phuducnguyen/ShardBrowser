@@ -5,6 +5,7 @@ import { SettingsPage } from "./index";
 import { ToastHost } from "../../widgets/ToastHost/ToastHost";
 import { useToastStore } from "../../shared/model/toast";
 import { backend } from "../../test/tauri";
+import { useBuildInfo } from "../../shared/model/buildInfo";
 
 let loadError: string | null;
 
@@ -33,12 +34,37 @@ async function renderPage() {
 const goTo = (user: ReturnType<typeof userEvent.setup>, name: string) => user.click(screen.getByRole("tab", { name }));
 
 describe("Settings window", () => {
-  it("groups the settings into four sections, General first", async () => {
+  it("groups the settings into sections, General first and About last", async () => {
     await renderPage();
     const tabs = screen.getAllByRole("tab").map((x) => x.textContent);
-    expect(tabs).toEqual(["General", "Browser", "Profile defaults", "Data", "API & MCP"]);
+    expect(tabs).toEqual(["General", "Browser", "Profile defaults", "Data", "API & MCP", "About"]);
     expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Provider")).toHaveValue("ip-api.com");
+  });
+
+  it("About shows the running build, says a test build is one, and finds a newer release", async () => {
+    useBuildInfo.setState({ info: null, aboutRequested: false });
+    backend.handlers.app_build_info = () => ({ version: "0.2.0-beta.1", commit: "abc12345", built_unix: 1792800000, channel: "beta", engine_compat: "2.0.3" });
+    backend.handlers.launcher_update_check = () => ({ current: "0.2.0-beta.1", latest: "v0.2.0-beta.2", update_available: true, release_url: "https://example.com/r" });
+    const user = await renderPage();
+    await goTo(user, "About");
+    expect(await screen.findByTestId("about-version")).toHaveTextContent("v0.2.0-beta.1");
+    expect(screen.getByText("Test build (beta)")).toBeInTheDocument();
+    expect(screen.getByText("abc12345")).toBeInTheDocument();
+    expect(await screen.findByTestId("about-update")).toHaveTextContent("A newer version is available: v0.2.0-beta.2");
+    expect(screen.getByRole("button", { name: /Get the update/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
+  });
+
+  it("opens on About when the rail's version chip asked for it", async () => {
+    backend.handlers.app_build_info = () => ({ version: "0.2.0", commit: "abc12345", built_unix: 0, channel: "stable", engine_compat: "2.0.3" });
+    backend.handlers.launcher_update_check = () => ({ current: "0.2.0", latest: "v0.2.0", update_available: false, release_url: null });
+    useBuildInfo.setState({ info: null, aboutRequested: true });
+    await renderPage();
+    expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("Stable")).toBeInTheDocument();
+    expect(await screen.findByText("You are on the latest version.")).toBeInTheDocument();
+    expect(useBuildInfo.getState().aboutRequested).toBe(false);
   });
 
   it("shows the Camoufox engine under Browser, with its size, and installs it on request", async () => {

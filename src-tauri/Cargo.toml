@@ -1,6 +1,6 @@
 [package]
 name = "shardx-launcher"
-version = "2.0.3"
+version = "0.2.0-beta.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -28,6 +28,7 @@ tower = { version = "0.5", features = ["util"] }
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+semver = "1"
 # Requests the launcher sends itself, with a chosen TLS/HTTP2 fingerprint.
 # Optional: only the automation runner uses them.
 # `cookies` is what makes a session a session; the decompressors are what makes

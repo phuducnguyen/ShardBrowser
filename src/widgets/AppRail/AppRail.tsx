@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTheme } from "@proxyshard/shardx-ui-kit";
 import { HeroVMark, Icon, type IconName } from "../../shared/ui/hv";
 import { useNav } from "../../shared/model/navigation";
+import { useBuildInfo, versionTag } from "../../shared/model/buildInfo";
 import { useT } from "../../shared/i18n";
 import { useProfile } from "../../entities/profile";
 import type { RtUpdate, Section } from "../../shared/types";
@@ -25,9 +26,13 @@ export function AppRail() {
   const [update, setUpdate] = useState<RtUpdate | null>(null);
   const [apiOpen, setApiOpen] = useState(false);
 
+  const build = useBuildInfo((s) => s.info);
+  const loadBuild = useBuildInfo((s) => s.load);
+  const requestAbout = useBuildInfo((s) => s.requestAbout);
   useEffect(() => {
     invoke<RtUpdate>("launcher_update_check").then(setUpdate).catch(() => {});
-  }, []);
+    loadBuild();
+  }, [loadBuild]);
 
   const destinations: Destination[] = [
     { id: "browsers", icon: "grid", label: t("rail.profiles") },
@@ -68,8 +73,15 @@ export function AppRail() {
     <div className="hv" style={{ height: "100%" }}>
       <nav className={wide ? "rail is-wide" : "rail"} aria-label={t("rail.label")}>
         <div className="logo-row">
-          <div className="logo" role="img" aria-label="HeroV Browser" title="HeroV Browser"><HeroVMark /></div>
-          <span className="logo-text" aria-hidden="true">HeroV</span>
+          <div className="logo" role="img" aria-label={build ? `HeroV Browser ${versionTag(build)}` : "HeroV Browser"} title={build ? `HeroV Browser ${versionTag(build)}` : "HeroV Browser"}><HeroVMark /></div>
+          <span className="logo-name">
+            <span className="logo-text" aria-hidden="true">HeroV</span>
+            {build && (
+              <button type="button" className={`logo-ver ch-${build.channel}`} data-testid="rail-version" title={t("about.openAbout")} onClick={() => { requestAbout(true); setSection("settings"); }}>
+                {versionTag(build)}
+              </button>
+            )}
+          </span>
         </div>
         <div className="new-split">
           <button type="button" aria-label={t("rail.newProfile")} title={t("rail.newProfile")} onClick={startNewProfile}>

@@ -163,12 +163,28 @@
 .hv .logo-row { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .hv .logo-row .logo { margin-bottom: 0; }
 .hv .logo-text { display: none; font-weight: 800; font-size: 20px; letter-spacing: -.015em; color: var(--on-surface); }
+/* the running build's version, under the logo (collapsed) or under the name (wide); opens About */
+.hv .logo-row { flex-direction: column; gap: 4px; }
+.hv .logo-name { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.hv .logo-ver {
+  border: 0; border-radius: 999px; padding: 1px 6px; cursor: pointer; white-space: nowrap;
+  font: 600 10px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: 0;
+  color: var(--on-surface-2); background: color-mix(in srgb, var(--on-surface-2) 12%, transparent);
+}
+.hv .logo-ver:hover { color: var(--on-surface); }
+.hv .logo-ver.ch-beta, .hv .logo-ver.ch-alpha, .hv .logo-ver.ch-rc { color: var(--warning); background: var(--warning-container); }
+/* Settings → About */
+.hv .about-head { display: flex; align-items: center; gap: 16px; }
+.hv .about-name { margin: 0; font-weight: 800; font-size: 20px; letter-spacing: -.015em; color: var(--on-surface); }
+.hv .about-ver { margin: 4px 0 0; display: flex; align-items: center; gap: 8px; font: 600 14px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--on-surface-2); }
+.hv .chip-plain.is-warn { background: var(--warning-container); color: var(--warning); }
 .hv .rail:not(.is-wide) .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hv .rail:not(.is-wide) .rail-btn { height: 44px; padding: 6px 0; justify-content: center; }
 
 /* wide rail: icon and label on one row, the active row tinted end to end */
 .hv .rail.is-wide { align-items: stretch; padding-inline: 12px; }
-.hv .rail.is-wide .logo-row { justify-content: flex-start; gap: 10px; padding: 0 4px; }
+.hv .rail.is-wide .logo-row { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 4px; }
+.hv .rail.is-wide .logo-name { align-items: flex-start; gap: 2px; }
 .hv .rail.is-wide .logo-text { display: block; }
 .hv .rail.is-wide .new-split { width: 100%; }
 .hv .rail.is-wide .new-split button { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 14px; }

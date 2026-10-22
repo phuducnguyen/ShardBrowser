@@ -1,7 +1,7 @@
 {
   "name": "shardx-launcher",
   "private": true,
-  "version": "2.0.3",
+  "version": "0.2.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:fingerprints": "node scripts/fp-validate.mjs",
     "build:herov-css": "node scripts/build-herov-css.mjs",
+    "version:set": "node scripts/set-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

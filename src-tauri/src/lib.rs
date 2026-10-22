@@ -28,6 +28,7 @@ mod modguard;
 mod runner;
 mod wasm;
 mod trash;
+mod version;
 
 use serde_json::Value;
 
@@ -2281,12 +2282,17 @@ pub fn run() {
             runtime::runtime_status,
             runtime::runtime_install,
             runtime::launcher_update_check,
+            version::app_build_info,
             camoufox::camoufox_status,
             camoufox::camoufox_install,
             camoufox::camoufox_library,
         ])
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
+            // The title bar and taskbar say which build is running.
+            if let Some(w) = tauri::Manager::get_webview_window(app, "main") {
+                let _ = w.set_title(&format!("HeroV Browser {}", version::VERSION));
+            }
 
             {
                 use tauri::menu::{Menu, MenuItem};
@@ -2302,7 +2308,7 @@ pub fn run() {
                     #[cfg(target_os = "macos")]
                     let builder = builder.icon_as_template(true);
                     builder
-                        .tooltip("HeroV Browser")
+                        .tooltip(format!("HeroV Browser {}", version::VERSION))
                         .menu(&menu)
                         .show_menu_on_left_click(false)
                         .on_menu_event(|app, e| match e.id.as_ref() {

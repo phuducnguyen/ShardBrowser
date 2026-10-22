@@ -9,6 +9,7 @@ import { useProfile } from "../../entities/profile";
 import { useToastStore } from "../../shared/model/toast";
 import { ToastHost } from "../ToastHost/ToastHost";
 import { backend } from "../../test/tauri";
+import { useBuildInfo } from "../../shared/model/buildInfo";
 
 const upToDate = { current: "2.0.3", latest: "2.0.3", update_available: false, release_url: null };
 
@@ -24,11 +25,25 @@ beforeEach(() => {
     api_info: () => ({ base_url: "http://127.0.0.1:40325", enabled: true }),
   });
   useNav.setState({ section: "browsers" });
+  useBuildInfo.setState({ info: null, aboutRequested: false });
   useToastStore.setState({ items: [] });
   vi.mocked(openUrl).mockClear();
 });
 
 describe("AppRail", () => {
+  it("shows the running version under the logo and opens About from it", async () => {
+    useBuildInfo.setState({ info: null, aboutRequested: false });
+    backend.handlers.app_build_info = () => ({ version: "0.2.0-beta.1", commit: "abc12345", built_unix: 0, channel: "beta", engine_compat: "2.0.3" });
+    const { user } = renderRail();
+    const chip = await screen.findByTestId("rail-version");
+    expect(chip).toHaveTextContent("v0.2.0-beta.1");
+    expect(chip).toHaveClass("ch-beta");
+    expect(screen.getByRole("img", { name: "HeroV Browser v0.2.0-beta.1" })).toBeInTheDocument();
+    await user.click(chip);
+    expect(useNav.getState().section).toBe("settings");
+    expect(useBuildInfo.getState().aboutRequested).toBe(true);
+  });
+
   it("puts Profiles first and Proxies second", () => {
     const { nav } = renderRail();
     const labels = within(nav).getAllByRole("button").map((b) => b.textContent?.trim());

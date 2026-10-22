@@ -10,9 +10,11 @@ import { settingsGet, settingsSave, settingsLoadError, apiInfo, apiRegenerateTok
 import { DataRootCard } from "../../features/manage-profiles/ui/DataRootCard";
 import { CamoufoxEngineCard } from "../../features/manage-profiles/ui/CamoufoxEngineCard";
 import { ProfileDefaultsTab } from "./ProfileDefaultsTab";
+import { AboutTab } from "./AboutTab";
+import { useBuildInfo } from "../../shared/model/buildInfo";
 import { useT, useLang, LANG_OPTIONS, type Lang } from "../../shared/i18n";
 
-type Tab = "general" | "browser" | "defaults" | "data" | "api";
+type Tab = "general" | "browser" | "defaults" | "data" | "api" | "about";
 const PREFIX = "settings";
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -28,7 +30,15 @@ export function SettingsPage() {
   const t = useT();
   const lang = useLang((st) => st.lang);
   const setLang = useLang((st) => st.setLang);
-  const [tab, setTab] = useState<Tab>("general");
+  const aboutRequested = useBuildInfo((st) => st.aboutRequested);
+  const requestAbout = useBuildInfo((st) => st.requestAbout);
+  const [tab, setTab] = useState<Tab>(aboutRequested ? "about" : "general");
+  useEffect(() => {
+    if (aboutRequested) {
+      setTab("about");
+      requestAbout(false);
+    }
+  }, [aboutRequested, requestAbout]);
   const [s, setS] = useState<Settings>({
     browser_path: null,
     theme: "dark",
@@ -77,6 +87,7 @@ export function SettingsPage() {
     { id: "defaults", label: t("settings.tabDefaults") },
     { id: "data", label: t("settings.tabData") },
     { id: "api", label: t("settings.tabApi") },
+    { id: "about", label: t("about.tab") },
   ];
   const triggers = s.helper_triggers ?? [];
   const helperOn = s.helper_enabled ?? true;
@@ -270,10 +281,14 @@ export function SettingsPage() {
               </div>
             </>
           )}
+
+          {tab === "about" && <AboutTab />}
         </div>
-        <div className="savebar">
-          <button type="button" className="btn btn-primary btn-sm" onClick={save}>{t("settings.saveBtn")}</button>
-        </div>
+        {tab !== "about" && (
+          <div className="savebar">
+            <button type="button" className="btn btn-primary btn-sm" onClick={save}>{t("settings.saveBtn")}</button>
+          </div>
+        )}
         </>)}
       </div>
     </Window>

@@ -9,3 +9,6 @@ ui-kit/node_modules/
 
 # Third-party UI reference screenshots (not ours to redistribute)
 .reference/
+
+# agent harness state
+**/.omc/

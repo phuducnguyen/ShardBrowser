@@ -13,7 +13,8 @@ const PUB_BASE: &str = "https://pub-e57a7c60f6934eb09a6600bf2fc59cdc.r2.dev";
 /// etag, so install/status checks never poll R2/S3 per-archive.
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/ProxyShard/ShardBrowser/main/runtime.json";
-const LAUNCHER_RELEASE_REPO: &str = "ProxyShard/ShardBrowser";
+/// Where HeroV's own releases are published (the launcher update check reads them).
+const LAUNCHER_RELEASE_REPO: &str = "phuducnguyen/ShardBrowser";
 /// Chromium version baked into the current bundle (used for Mac Framework path).
 pub const CHROMIUM_VERSION: &str = "152.0.7977.65";
 
@@ -579,9 +580,10 @@ fn version_lt(a: &str, b: &str) -> bool {
     false
 }
 
-/// This launcher's own version, as published.
+/// The version this launcher presents to the engine feed: the upstream launcher version whose
+/// engine contract it keeps (see `version::ENGINE_FEED_COMPAT`), not HeroV's own product version.
 fn launcher_version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+    crate::version::ENGINE_FEED_COMPAT
 }
 
 /// Whether this launcher is new enough for the engine build the manifest
@@ -680,8 +682,9 @@ pub async fn runtime_install(window: Window, force: bool) -> Result<RuntimeStatu
     // Refused rather than installed: this build could not configure it.
     if engine_needs_newer_launcher(&manifest) {
         return Err(format!(
-            "This engine build needs HeroV Browser {} or newer — you are on {}. Update the launcher first.",
+            "This engine build needs a launcher compatible with engine contract {} (HeroV {} implements {}). Update HeroV first.",
             manifest.min_launcher_version.as_deref().unwrap_or("?"),
+            crate::version::VERSION,
             launcher_version(),
         ));
     }
@@ -976,34 +979,30 @@ pub struct LauncherVersionInfo {
     pub release_url: Option<String>,
 }
 
-fn norm_ver(v: &str) -> &str {
-    v.strip_prefix('v').unwrap_or(v)
-}
-
-/// Best-effort SemVer compare, lex fallback per component.
-fn is_newer(latest: &str, current: &str) -> bool {
-    let a: Vec<_> = norm_ver(latest).split('.').collect();
-    let b: Vec<_> = norm_ver(current).split('.').collect();
-    for i in 0..a.len().max(b.len()) {
-        let x = a.get(i).copied().unwrap_or("0");
-        let y = b.get(i).copied().unwrap_or("0");
-        match (x.parse::<u64>(), y.parse::<u64>()) {
-            (Ok(xn), Ok(yn)) => {
-                if xn != yn { return xn > yn; }
-            }
-            _ => {
-                if x != y { return x > y; }
-            }
-        }
-    }
-    false
+/// The newest release in a GitHub `releases` list that this build may move to: drafts never,
+/// pre-releases only when this build is itself a pre-release (a beta tester follows betas; a stable
+/// user is never offered one).
+fn pick_latest(releases: &serde_json::Value, current: &str) -> Option<(String, Option<String>)> {
+    let on_pre = crate::version::channel_of(current) != "stable";
+    releases
+        .as_array()?
+        .iter()
+        .filter(|r| !r["draft"].as_bool().unwrap_or(false))
+        .filter(|r| on_pre || !r["prerelease"].as_bool().unwrap_or(false))
+        .filter_map(|r| {
+            let tag = r["tag_name"].as_str()?;
+            let v = semver::Version::parse(tag.trim_start_matches('v')).ok()?;
+            Some((v, tag.to_string(), r["html_url"].as_str().map(String::from)))
+        })
+        .max_by(|a, b| a.0.cmp(&b.0))
+        .map(|(_, tag, url)| (tag, url))
 }
 
 #[tauri::command]
-pub async fn launcher_update_check(app: tauri::AppHandle) -> Result<LauncherVersionInfo, String> {
-    let current = app.package_info().version.to_string();
+pub async fn launcher_update_check(_app: tauri::AppHandle) -> Result<LauncherVersionInfo, String> {
+    let current = crate::version::VERSION.to_string();
 
-    let url = format!("https://api.github.com/repos/{LAUNCHER_RELEASE_REPO}/releases/latest");
+    let url = format!("https://api.github.com/repos/{LAUNCHER_RELEASE_REPO}/releases?per_page=30");
     let client = match reqwest::Client::builder()
         .user_agent(format!("shardx-launcher/{current}"))
         .build()
@@ -1036,11 +1035,10 @@ pub async fn launcher_update_check(app: tauri::AppHandle) -> Result<LauncherVers
             current, latest: None, update_available: false, release_url: None,
         }),
     };
-    let latest = body.get("tag_name").and_then(|v| v.as_str()).map(String::from);
-    let release_url = body.get("html_url").and_then(|v| v.as_str()).map(String::from);
-    let update_available = match &latest {
-        Some(l) => is_newer(l, &current),
-        None => false,
+    let (latest, release_url) = match pick_latest(&body, &current) {
+        Some((tag, url)) => (Some(tag), url),
+        None => (None, None),
     };
+    let update_available = latest.as_deref().is_some_and(|l| crate::version::is_newer(l, &current));
     Ok(LauncherVersionInfo { current, latest, update_available, release_url })
 }
