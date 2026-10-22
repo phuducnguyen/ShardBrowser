@@ -1,5 +1,12 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M195.242 89.7604C192.66 77.8123 176.212 76.2584 171.428 87.5107L41.0754 394.154C35.7262 406.738 51.5688 417.552 61.3799 408.014L208.949 264.552C221.328 252.518 226.632 234.973 222.987 218.114L195.242 89.7604Z" fill="#724FFF"/>
-<path d="M282.411 247.105C265.065 241.826 251.922 227.618 248.032 209.941L219.055 78.2582C216.415 66.2589 230.865 58.0365 239.867 66.416L467.942 278.718C477.668 287.772 468.447 303.723 455.724 299.851L282.411 247.105Z" fill="#724FFF"/>
-<path d="M87.8983 448.489C75.3431 452.016 66.4009 436.455 75.7914 427.421L225.468 283.431C238.462 270.93 257.18 266.356 274.491 271.45L449.381 322.917C461.456 326.47 461.35 343.575 449.232 346.979L87.8983 448.489Z" fill="#724FFF"/>
+<svg width="1024" height="1024" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- HeroV app icon: a shield with a V cut into it, on the brand gradient. -->
+  <defs>
+    <linearGradient id="herov-g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F5BFF"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#herov-g)"/>
+  <path d="M32 10 49 16v13c0 11-7 19.5-17 24-10-4.5-17-13-17-24V16z" fill="#fff"/>
+  <path d="M23.5 23 32 41l8.5-18" stroke="url(#herov-g)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

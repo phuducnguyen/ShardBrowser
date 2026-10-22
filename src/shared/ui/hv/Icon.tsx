@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 /// HeroV icon set: 24px grid, 1.8 stroke, round caps (see docs/design-guidelines.md §3).
 /// Stroke and fill come from the `.ico` class in the generated stylesheet.
@@ -51,14 +51,21 @@ export function Icon({ name, size, className }: { name: IconName; size?: number;
   );
 }
 
-/// The HeroV mark: a shield with a V cut out of it. Colour comes from `currentColor`;
-/// the V takes `--logo-facet` so it matches whatever the shield sits on.
+/// The HeroV mark, the same drawing as the app icon (`src-tauri/icons/icon-source.svg`): a shield
+/// with a V cut into it, on the brand gradient.
 export function HeroVMark({ size = 40 }: { size?: number }) {
+  const id = `herov-g-${useId().replace(/:/g, "")}`;
   return (
-    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" focusable="false">
-      <path d="M20 3 34.5 8.2V19c0 8.4-5.8 14.6-14.5 18C11.3 33.6 5.5 27.4 5.5 19V8.2z" fill="currentColor" />
-      <path d="M20 3 5.5 8.2V19c0 8.4 5.8 14.6 14.5 18z" fill="#fff" fillOpacity=".18" />
-      <path d="M12.8 13.5 20 27.5l7.2-14" fill="none" style={{ stroke: "var(--logo-facet, #fff)" }} strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#4F5BFF" />
+          <stop offset="1" stopColor="#8B5CF6" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill={`url(#${id})`} />
+      <path d="M32 10 49 16v13c0 11-7 19.5-17 24-10-4.5-17-13-17-24V16z" fill="#fff" />
+      <path d="M23.5 23 32 41l8.5-18" fill="none" stroke={`url(#${id})`} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
