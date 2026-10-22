@@ -1,11 +1,11 @@
 import { Fragment, useState, type ReactNode } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { Icon, Window } from "../../shared/ui/hv";
-import { withUtm } from "../../shared/lib/utils";
-import { useT } from "../../shared/i18n";
+import { Window } from "../../shared/ui/hv";
+import { useT, useLang } from "../../shared/i18n";
 import data from "./patchlog.json";
 
-/** The log is data, in patchlog.json; this module only draws it. */
+/** HeroV's own release log. The log is data, in patchlog.json (newest release first, one entry per
+ *  user-visible change, English with an optional Vietnamese `vi`); this module only draws it. Add
+ *  the release here in the same commit that sets its version (docs/releasing.md). */
 
 type Block =
   | { type: "p" | "note"; text: string }
@@ -17,11 +17,13 @@ type Entry = {
   title: string;
   /** One line under the title: what it is, before any detail. */
   lead: string;
+  /** "new", "improved" or "fix". */
   tag?: string;
-  /** Which half of the product changed: the engine, or the launcher. */
+  /** Which half of the product changed: the engines, or the launcher. */
   scope?: "browser" | "launcher";
-  locked?: boolean;
   blocks: Block[];
+  /** The same entry in Vietnamese. */
+  vi?: { title: string; lead: string; blocks: Block[] };
 };
 
 type Release = { version: string; date: string; entries: Entry[] };
@@ -63,35 +65,21 @@ function Blocks({ blocks }: { blocks: Block[] }) {
   );
 }
 
-function LockNotice() {
-  const t = useT();
-  return (
-    <div className="callout-warn log-lock">
-      <strong className="log-lock-head">
-        <Icon name="lock" size={16} />
-        {t("patchlog.shipsAtStars", { n: data.starsRequired.toLocaleString("en-US") })}
-      </strong>
-      <p>{t("patchlog.lockExplainer")}</p>
-      <button type="button" className="btn btn-secondary btn-sm" onClick={() => openUrl(withUtm(data.repoUrl)).catch(() => {})}>
-        {t("patchlog.starRepo")}
-      </button>
-    </div>
-  );
-}
-
 function EntryCard({ entry }: { entry: Entry }): ReactNode {
   const t = useT();
+  const lang = useLang((s) => s.lang);
+  // Vietnamese text when the entry has it; English otherwise (Chinese falls back to English).
+  const text = lang === "vi" && entry.vi ? entry.vi : entry;
+  const tagLabel = entry.tag === "new" ? t("patchlog.tagNew") : entry.tag === "fix" ? t("patchlog.tagFix") : entry.tag === "improved" ? t("patchlog.tagImproved") : entry.tag;
   return (
     <article className="log-entry">
       <div className="log-head">
-        <h2>{entry.title}</h2>
+        <h2>{text.title}</h2>
         <span className="chip-plain">{entry.scope === "launcher" ? t("patchlog.scopeLauncher") : t("patchlog.scopeBrowser")}</span>
-        {entry.tag && <span className={entry.tag === "new" ? "status" : "status is-idle"}>{entry.tag}</span>}
-        {entry.locked && <span className="chip-warn">{t("patchlog.lockedBadge")}</span>}
+        {entry.tag && <span className={entry.tag === "new" ? "status" : "status is-idle"}>{tagLabel}</span>}
       </div>
-      <p className="log-lead">{entry.lead}</p>
-      <Blocks blocks={entry.blocks} />
-      {entry.locked && <LockNotice />}
+      <p className="log-lead">{text.lead}</p>
+      <Blocks blocks={text.blocks} />
     </article>
   );
 }

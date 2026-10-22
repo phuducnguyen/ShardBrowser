@@ -45,7 +45,7 @@ A release is not published until every box is ticked; the notes say which checks
    - `npx tsc --noEmit`, `node scripts/check-i18n.mjs` (en, zh and vi complete), `npx vitest run`
    - `cargo test --lib` (with `HEROV_TEST_MANIFEST=1` on Windows)
    - real-engine checks that the change touches (ignored tests, run by hand)
-4. **Changelog**: move `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`; write `docs/releases/X.Y.Z.md` (What is new, Known issues, Upgrade notes, Checks at release).
+4. **Changelog**: move `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`; write `docs/releases/X.Y.Z.md` (What is new, Known issues, Upgrade notes, Checks at release); add the release at the top of `src/pages/patchlog/patchlog.json` (the in-app **What's new**, English plus `vi`). A test fails if its newest version differs from the app's version.
 5. **Commit** `chore(release): X.Y.Z` on `main`, push.
 6. **Build** `npx tauri build --bundles nsis`; rename to `HeroV-Browser-X.Y.Z-x64-setup.exe`; record its SHA-256.
 7. **Smoke test** the installer: install over the previous version, start, see the right version in the rail and About, open one Chrome and one Camoufox profile. Say in the notes if it was not done on a clean machine.

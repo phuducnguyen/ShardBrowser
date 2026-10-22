@@ -98,21 +98,17 @@ Needs Node 22+, Rust (stable) and the Tauri 2 prerequisites for your OS. Checks 
 
 ## Roadmap
 
-The order was chosen so that team and cloud features, the biggest differentiator, come first.
+Each version has one theme; the plan, with exit criteria, is in [docs/roadmap.md](docs/roadmap.md).
 
 | Version | Theme |
 |---|---|
-| 0.1.0 | New interface, device-first profiles, profile defaults, Vietnamese (this release) |
-| 0.2.0 | Cloud alpha: self-hosted server (Rust, axum), encrypted sync of profiles and their browser data |
-| 0.3.0 | One-command deployment of the server on your own machine |
-| 0.4.0 | Teams: roles, sharing, audit log |
-| 0.5.0 | Profile workflow: create many at once, task centre, bulk cookie import, activity history, undo |
-| 0.6.0 | Fingerprint quality: real-device captures, isolated-environment checks, Android out of experimental |
-| 0.7.0 | Automation and interface polish |
+| 0.2.0 (beta out) | Two engines (Chrome, Camoufox), phones, visible versions, Check IP |
+| 0.3.0 | Daily work with many profiles: numbered windows, tab restore, Camoufox cookies |
+| 0.4.0 | Moving and sharing profiles: ZIP export/import, bulk create, MCP connect dialog |
+| 0.5.0 | Phone profiles out of experimental |
+| 0.6.0 | Cloud alpha (self-hosted sync) |
 
-Plans: [editions and Cloud first](plans/261019-herov-gap-roadmap/editions-and-cloud-first.md) · [feature roadmap](plans/261019-herov-gap-roadmap/feature-roadmap.md) · [Cloud spec](docs/specs/cloud-sync.md).
-
-HeroV stays a free, open-source project; there is no paid edition planned.
+Versions follow [Semantic Versioning](https://semver.org); every change is in the [CHANGELOG](CHANGELOG.md) and in the app under **What's new**. How a release is made: [docs/releasing.md](docs/releasing.md).
 
 ## For developers
 
