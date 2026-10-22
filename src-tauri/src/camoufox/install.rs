@@ -78,9 +78,15 @@ pub struct CamoufoxStatus {
     pub download_bytes: Option<u64>,
 }
 
+/// Files an engine folder must hold to start. A folder that lost one of them (an interrupted
+/// replace) shows as "not installed", so the interface offers to install it again.
+fn is_complete(dir: &Path) -> bool {
+    [exe_name(), "camoufox.cfg", "installed.json"].iter().all(|f| dir.join(f).is_file())
+}
+
 pub fn status() -> CamoufoxStatus {
     let rel = release_for_host();
-    let bin = binary_path().ok().filter(|p| p.exists());
+    let bin = binary_path().ok().filter(|p| p.exists() && p.parent().map(is_complete).unwrap_or(false));
     let size_bytes = bin.as_ref().and_then(|p| p.parent()).map(dir_size);
     CamoufoxStatus {
         supported: rel.is_some(),
@@ -221,11 +227,22 @@ pub fn finish_install(
         let _ = fs::remove_dir_all(&stage);
         anyhow::bail!("the archive has no {} at its top level", exe_name());
     }
+    // Swap folders by renaming, never by deleting in place: deleting stops halfway when a file is
+    // in use (a running profile) and leaves an engine with files missing. A rename either works
+    // whole or fails before anything changed.
     let final_dir = root.join(tag);
+    let old_dir = root.join(format!("{tag}.old-{}", uuid::Uuid::new_v4().simple()));
     if final_dir.exists() {
-        fs::remove_dir_all(&final_dir)?;
+        if let Err(e) = fs::rename(&final_dir, &old_dir) {
+            let _ = fs::remove_dir_all(&stage);
+            return Err(anyhow::Error::from(e).context("the installed engine is in use; close every Camoufox profile and try again"));
+        }
     }
-    fs::rename(&stage, &final_dir).context("move the unpacked engine into place")?;
+    if let Err(e) = fs::rename(&stage, &final_dir) {
+        let _ = fs::rename(&old_dir, &final_dir);
+        return Err(anyhow::Error::from(e).context("move the unpacked engine into place"));
+    }
+    let _ = fs::remove_dir_all(&old_dir);
     fs::write(
         final_dir.join("installed.json"),
         serde_json::to_string_pretty(&serde_json::json!({ "tag": tag, "sha256": sha256 }))?,
@@ -601,6 +618,31 @@ mod tests {
         let st = status();
         println!("installed: {} at {:?}, {} bytes", st.installed, st.binary_path, st.size_bytes.unwrap_or(0));
         assert!(st.installed);
+    }
+
+    #[test]
+    fn an_engine_folder_missing_its_config_is_not_complete() {
+        let d = scratch("complete");
+        for f in [exe_name(), "camoufox.cfg", "installed.json"] {
+            fs::write(d.join(f), b"x").unwrap();
+        }
+        assert!(is_complete(&d));
+        fs::remove_file(d.join("camoufox.cfg")).unwrap();
+        assert!(!is_complete(&d), "a half-replaced engine must not count as installed");
+    }
+
+    #[test]
+    fn a_replace_leaves_no_old_or_staging_folder_behind() {
+        let d = scratch("swap");
+        fs::create_dir_all(d.join("v1")).unwrap();
+        fs::write(d.join("v1").join("old.txt"), b"old").unwrap();
+        let zip = fake_archive(&d, &[("camoufox.cfg", b"cfg")]);
+        let size = fs::metadata(&zip).unwrap().len();
+        let sha = sha256_file(&zip).unwrap();
+        finish_install(&zip, &d, "v1", &sha, size, &|_| {}).unwrap();
+        let names: Vec<String> = fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        assert!(names.iter().all(|n| !n.contains(".old-") && !n.ends_with(".partial")), "{names:?}");
+        assert!(is_complete(&d.join("v1")));
     }
 
     #[test]
